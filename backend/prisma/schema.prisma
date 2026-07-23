@@ -1,0 +1,131 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+  CANDIDATE
+}
+
+enum JobStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  EXPIRED
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SHORTLISTED
+  INTERVIEW
+  ACCEPTED
+  REJECTED
+}
+
+enum PaymentType {
+  FEATURED_JOB
+  SUBSCRIPTION_PRO
+  SUBSCRIPTION_ENTERPRISE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+model User {
+  id               String        @id @default(uuid())
+  name             String
+  email            String        @unique
+  passwordHash     String
+  role             Role          @default(USER)
+  subscriptionPlan String        @default("FREE")
+  jobPostingQuota  Int           @default(2)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  jobs             Job[]         @relation("UserJobs")
+  profile          Profile?
+  applications     Application[] @relation("CandidateApplications")
+  transactions     Transaction[]
+
+  @@map("users")
+}
+
+model Profile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone           String?
+  bio             String?  @db.Text
+  currentJobTitle String?  @map("current_job_title")
+  skills          String?  @db.Text // JSON string or comma-separated list
+  resumeUrl       String?  @map("resume_url")
+  portfolioUrl    String?  @map("portfolio_url")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("profiles")
+}
+
+model Job {
+  id           String        @id @default(uuid())
+  title        String
+  company      String
+  location     String
+  salary       String
+  description  String        @db.Text
+  requirements String        @db.Text
+  contact      String
+  status       JobStatus     @default(PENDING)
+  isFeatured   Boolean       @default(false)
+  featuredUntil DateTime?
+  postedBy     String
+  postedByUser User          @relation("UserJobs", fields: [postedBy], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  expiresAt    DateTime      // Ditentukan otomatis 30 hari dari tanggal tayang (ACTIVE)
+  applications Application[] @relation("JobApplications")
+  transactions Transaction[]
+
+  @@map("jobs")
+}
+
+model Application {
+  id          String            @id @default(uuid())
+  jobId       String
+  job         Job               @relation("JobApplications", fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId String
+  candidate   User              @relation("CandidateApplications", fields: [candidateId], references: [id], onDelete: Cascade)
+  coverLetter String?           @db.Text
+  status      ApplicationStatus @default(APPLIED)
+  appliedAt   DateTime          @default(now())
+
+  @@unique([jobId, candidateId])
+  @@map("applications")
+}
+
+model Transaction {
+  id            String        @id @default(uuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId         String?
+  job           Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  amount        Float
+  paymentType   PaymentType
+  paymentMethod String        @default("DEMO_BYPASS")
+  status        PaymentStatus @default(PENDING)
+  referenceId   String
+  createdAt     DateTime      @default(now())
+
+  @@map("transactions")
+}
