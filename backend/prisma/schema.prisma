@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,7 +5,12 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
+
+// ==========================================
+// ENUMS (Tipe Data Pilihan)
+// ==========================================
 
 enum Role {
   ADMIN
@@ -43,6 +45,25 @@ enum PaymentStatus {
   FAILED
 }
 
+enum ReportReason {
+  PUNGLI_BIAYA
+  INDIKASI_PENIPUAN
+  DATA_PALSU
+  DISKRIMINASI
+  LAINNYA
+}
+
+enum ReportStatus {
+  PENDING
+  INVESTIGATING
+  RESOLVED_REJECTED
+  RESOLVED_ACTIONED
+}
+
+// ==========================================
+// MODELS (Tabel Database)
+// ==========================================
+
 model User {
   id               String        @id @default(uuid())
   name             String
@@ -51,12 +72,16 @@ model User {
   role             Role          @default(USER)
   subscriptionPlan String        @default("FREE")
   jobPostingQuota  Int           @default(2)
+  isBanned         Boolean       @default(false)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
+  
+  // Relasi
   jobs             Job[]         @relation("UserJobs")
   profile          Profile?
   applications     Application[] @relation("CandidateApplications")
   transactions     Transaction[]
+  reportsSubmitted JobReport[]   @relation("UserReports")
 
   @@map("users")
 }
@@ -68,7 +93,7 @@ model Profile {
   phone           String?
   bio             String?  @db.Text
   currentJobTitle String?  @map("current_job_title")
-  skills          String?  @db.Text // JSON string or comma-separated list
+  skills          String?  @db.Text // String JSON atau daftar kata dipisah koma
   resumeUrl       String?  @map("resume_url")
   portfolioUrl    String?  @map("portfolio_url")
   createdAt       DateTime @default(now())
@@ -78,24 +103,27 @@ model Profile {
 }
 
 model Job {
-  id           String        @id @default(uuid())
-  title        String
-  company      String
-  location     String
-  salary       String
-  description  String        @db.Text
-  requirements String        @db.Text
-  contact      String
-  status       JobStatus     @default(PENDING)
-  isFeatured   Boolean       @default(false)
+  id            String        @id @default(uuid())
+  title         String
+  company       String
+  location      String
+  salary        String
+  description   String        @db.Text
+  requirements  String        @db.Text
+  contact       String
+  status        JobStatus     @default(PENDING)
+  isFeatured    Boolean       @default(false)
   featuredUntil DateTime?
-  postedBy     String
-  postedByUser User          @relation("UserJobs", fields: [postedBy], references: [id], onDelete: Cascade)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  expiresAt    DateTime      // Ditentukan otomatis 30 hari dari tanggal tayang (ACTIVE)
-  applications Application[] @relation("JobApplications")
-  transactions Transaction[]
+  postedBy      String
+  postedByUser  User          @relation("UserJobs", fields: [postedBy], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  expiresAt     DateTime      // Ditentukan otomatis 30 hari dari tanggal tayang (ACTIVE)
+  
+  // Relasi
+  applications  Application[] @relation("JobApplications")
+  transactions  Transaction[]
+  reports       JobReport[]   @relation("JobReports")
 
   @@map("jobs")
 }
@@ -110,6 +138,7 @@ model Application {
   status      ApplicationStatus @default(APPLIED)
   appliedAt   DateTime          @default(now())
 
+  // Mencegah pelamar melamar di loker yang sama lebih dari 1x
   @@unique([jobId, candidateId])
   @@map("applications")
 }
@@ -128,4 +157,20 @@ model Transaction {
   createdAt     DateTime      @default(now())
 
   @@map("transactions")
+}
+
+model JobReport {
+  id          String       @id @default(uuid())
+  jobId       String
+  job         Job          @relation("JobReports", fields: [jobId], references: [id], onDelete: Cascade)
+  reporterId  String
+  reporter    User         @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  reason      ReportReason
+  description String?      @db.Text
+  status      ReportStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+
+  // 1 user hanya bisa melaporkan loker yang sama sebanyak 1x
+  @@unique([jobId, reporterId])
+  @@map("job_reports")
 }
