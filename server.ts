@@ -11,6 +11,7 @@ import jobRoutes from "./src/server/routes/jobRoutes";
 import candidateRoutes from "./src/server/routes/candidateRoutes";
 import paymentRoutes from "./src/server/routes/paymentRoutes";
 import reportRoutes from "./src/server/routes/reportRoutes";
+// authRoutes import removed because ./src/server/routes/authRoutes does not exist in this project yet.
 import { initCronJobs } from "./src/server/utils/cron";
 
 // Load environment variables
@@ -18,7 +19,7 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   // Middleware penting untuk parsing JSON body
   app.use(express.json());
@@ -33,11 +34,12 @@ async function startServer() {
     });
   });
 
-  // Pasang router lowongan kerja, kandidat, pembayaran, laporan, dan autentikasi
+  // Pasang router lowongan kerja, kandidat, pembayaran, laporan, DAN AUTENTIKASI
   app.use("/api", jobRoutes);
   app.use("/api", candidateRoutes);
   app.use("/api", paymentRoutes);
   app.use("/api", reportRoutes);
+  app.use("/api/auth", authRoutes); // <-- 2. TAMBAHKAN MOUNTING ROUTE AUTH INI!
 
   // Inisialisasi Sistem Cron Jobs untuk Auto-Expire lowongan 30 hari
   initCronJobs();
@@ -61,11 +63,11 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(Number(PORT), "0.0.0.0", () => {
     console.log(`=============================================================`);
-    console.log(`🚀 SERVER KERJASANA.COM TELAH AKTIF`);
+    console.log(`🚀 SERVER KERJASANA.COM TELAH AKTIF (SUPABASE CONNECTED)`);
     console.log(`   Berjalan pada: http://localhost:${PORT}`);
-    console.log(`   Teknologi  : Node.js, Express, JWT, node-cron, React-Vite`);
+    console.log(`   Teknologi  : Node.js, Express, Prisma, Supabase, React-Vite`);
     console.log(`=============================================================`);
   });
 }
