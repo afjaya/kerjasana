@@ -231,55 +231,45 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
             </div>
           </div>
 
-          {/* Pilihan Peran (Hanya Registrasi) */}
-          {!isLogin && (
-            <div>
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                Mendaftar Sebagai
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => setRole("CANDIDATE")}
-                  className={`py-2 px-2 text-xs font-semibold rounded-xl border transition-all flex items-center justify-center gap-1.5 ${
-                    role === "CANDIDATE"
-                      ? "bg-emerald-50 border-emerald-500 text-emerald-700 font-bold shadow-sm"
-                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <User className="w-3.5 h-3.5 text-emerald-600" />
-                  Pelamar
-                </button>
-                <button
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => setRole("USER")}
-                  className={`py-2 px-2 text-xs font-semibold rounded-xl border transition-all flex items-center justify-center gap-1.5 ${
-                    role === "USER"
-                      ? "bg-indigo-50 border-indigo-500 text-indigo-700 font-bold shadow-sm"
-                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <User className="w-3.5 h-3.5 text-indigo-600" />
-                  HRD / Owner
-                </button>
-                <button
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => setRole("ADMIN")}
-                  className={`py-2 px-2 text-xs font-semibold rounded-xl border transition-all flex items-center justify-center gap-1.5 ${
-                    role === "ADMIN"
-                      ? "bg-amber-50 border-amber-500 text-amber-700 font-bold shadow-sm"
-                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <Shield className="w-3.5 h-3.5 text-amber-600" />
-                  Admin
-                </button>
-              </div>
-            </div>
-          )}
+     
+
+{/* ✅ SESUDAH (Hanya Pelamar & HRD / Owner + grid-cols-2): */}
+{!isLogin && (
+  <div>
+    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+      Mendaftar Sebagai
+    </label>
+    <div className="grid grid-cols-2 gap-2">
+      <button
+        type="button"
+        disabled={isLoading}
+        onClick={() => setRole("CANDIDATE")}
+        className={`py-2 px-2 text-xs font-semibold rounded-xl border transition-all flex items-center justify-center gap-1.5 ${
+          role === "CANDIDATE"
+            ? "bg-emerald-50 border-emerald-500 text-emerald-700 font-bold shadow-sm"
+            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+        }`}
+      >
+        <User className="w-3.5 h-3.5 text-emerald-600" />
+        Pelamar
+      </button>
+
+      <button
+        type="button"
+        disabled={isLoading}
+        onClick={() => setRole("USER")}
+        className={`py-2 px-2 text-xs font-semibold rounded-xl border transition-all flex items-center justify-center gap-1.5 ${
+          role === "USER"
+            ? "bg-indigo-50 border-indigo-500 text-indigo-700 font-bold shadow-sm"
+            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+        }`}
+      >
+        <User className="w-3.5 h-3.5 text-indigo-600" />
+        HRD / Owner
+      </button>
+    </div>
+  </div>
+)}
 
           {/* Tombol Submit */}
           <button
@@ -296,21 +286,7 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
           </button>
         </form>
 
-        {/* Petunjuk Kredensial Pengujian */}
-        <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 text-[11px] text-slate-500 leading-relaxed">
-          <span className="font-bold text-slate-700">Akun Pengujian Cepat:</span>
-          <div className="mt-1 flex flex-col gap-1">
-            <div>
-              🧑‍💼 Pelamar: <span className="font-mono bg-slate-200/60 px-1 py-0.5 rounded text-slate-700">rian.candidate@gmail.com</span> | <span className="font-mono bg-slate-200/60 px-1 py-0.5 rounded text-slate-700">candidate123</span>
-            </div>
-            <div>
-              👨‍💼 HRD / Owner: <span className="font-mono bg-slate-200/60 px-1 py-0.5 rounded text-slate-700">budi@tokopedia.com</span> | <span className="font-mono bg-slate-200/60 px-1 py-0.5 rounded text-slate-700">owner123</span>
-            </div>
-            <div>
-              👑 Admin: <span className="font-mono bg-slate-200/60 px-1 py-0.5 rounded text-slate-700">admin@kerjasana.com</span> | <span className="font-mono bg-slate-200/60 px-1 py-0.5 rounded text-slate-700">admin123</span>
-            </div>
-          </div>
-        </div>
+              
       </div>
     </div>
   );
