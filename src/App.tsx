@@ -10,7 +10,7 @@ import { Briefcase, AlertTriangle, ShieldCheck, Sparkles, Check, CheckCircle2 } 
 
 import { HelmetProvider } from "react-helmet-async";
 import Navbar from "./components/Navbar";
-import SimulatorPanel from "./components/SimulatorPanel";
+//import SimulatorPanel from "./components/SimulatorPanel";
 import Home from "./pages/Home";
 import SubmitJob from "./pages/SubmitJob";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -195,14 +195,14 @@ function AppContent() {
           <Route path="/login" element={<AuthPage onLoginSuccess={handleLoginSuccess} />} />
         </Routes>
 
-        {/* Panel Simulator Melayang / Di Bawah */}
-        <SimulatorPanel
+        {/* Panel Simulator Melayang / Di Bawah 
+          <SimulatorPanel 
           currentUser={user}
           onSelectUser={handleSelectUser}
           onTriggerCron={handleTriggerCron}
           onBackdateJob={handleBackdateJob}
           jobs={jobs}
-        />
+        />*/}
       </main>
 
       {/* Footer Hak Cipta */}
