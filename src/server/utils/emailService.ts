@@ -21,7 +21,8 @@ interface UserData {
   email?: string;
 }
 
-let testAccountPromise: Promise<any> | null = null;
+let testAccountPromise: Promise<nodemailer.TestAccount> | null = null;
+import { getErrorMessage } from "./getErrorMessage";
 
 async function getTransporter(): Promise<nodemailer.Transporter> {
   const host = process.env.SMTP_HOST;
@@ -152,8 +153,8 @@ export async function sendApprovalNotification(job: JobData, posterUser?: UserDa
       etherealUrl = testUrl;
       console.log(`[Email] [PREVIEW ETHEREAL] -> ${etherealUrl}`);
     }
-  } catch (error: any) {
-    console.error("[Email] Gagal mengirim email:", error);
+  } catch (error: unknown) {
+    console.error("[Email] Gagal mengirim email:", getErrorMessage(error));
   }
 
   // Jika tabel EmailNotification ada di schema.prisma, kamu bisa aktifkan ini:

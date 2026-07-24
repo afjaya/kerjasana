@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { User, Application, CandidateProfile } from "../types";
 import { useToast } from "../context/ToastContext";
+import { getErrorMessage } from "../utils/getErrorMessage";
 import EmptyState from "../components/EmptyState";
 
 interface CandidateDashboardProps {
@@ -142,8 +143,8 @@ export default function CandidateDashboard({ user }: CandidateDashboardProps) {
       );
       queryClient.invalidateQueries({ queryKey: ["candidateProfile"] });
     },
-    onError: (err: any) => {
-      toast.error(err.message || "Gagal menyimpan.", "Error");
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Gagal menyimpan."), "Error");
     }
   });
 
@@ -163,8 +164,8 @@ export default function CandidateDashboard({ user }: CandidateDashboardProps) {
       if (!res.ok) throw new Error(data.error || "Gagal mengirimkan email sampel.");
 
       toast.success(data.message, "Email Alert Terkirim!");
-    } catch (err: any) {
-      toast.error(err.message || "Terjadi kesalahan saat test alert.", "Gagal Test Alert");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Terjadi kesalahan saat test alert."), "Gagal Test Alert");
     } finally {
       setIsTestingAlert(false);
     }

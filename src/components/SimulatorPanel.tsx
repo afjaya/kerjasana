@@ -5,14 +5,14 @@
 
 import React, { useState } from "react";
 import { Play, RotateCcw, ShieldCheck, UserCheck, Calendar, Info, Sparkles, CheckCircle2, FileSearch, Award, Search, AlertTriangle, ArrowRight } from "lucide-react";
-import { User } from "../types";
+import { User, Job } from "../types";
 
 interface SimulatorPanelProps {
   currentUser: User | null;
   onSelectUser: (email: string, pass: string) => void;
   onTriggerCron: () => Promise<{ expiredCount: number; updatedJobs: string[] }>;
   onBackdateJob: (jobId: string, daysAgo: number) => Promise<void>;
-  jobs: any[];
+  jobs: Job[];
 }
 
 export default function SimulatorPanel({

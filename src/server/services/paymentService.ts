@@ -1,5 +1,5 @@
 import { Database } from "../db";
-import { PaymentType, Transaction } from "../../types";
+import { PaymentType, Transaction, User, Job } from "../../types";
 
 export interface CheckoutInput {
   userId: string;
@@ -13,8 +13,8 @@ export interface CheckoutResult {
   isBypassed: boolean;
   message: string;
   transaction?: Transaction;
-  user?: any;
-  job?: any;
+  user?: User | null;
+  job?: Job | null;
   redirectUrl?: string;
 }
 

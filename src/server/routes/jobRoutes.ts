@@ -6,6 +6,7 @@
 import express, { Response } from "express";
 import jwt from "jsonwebtoken";
 import { Database } from "../db";
+import { getErrorMessage } from "../utils/getErrorMessage";
 import { requireAuth, requireAdmin, AuthenticatedRequest } from "../middleware/authMiddleware";
 import { sendApprovalNotification } from "../utils/emailService";
 
@@ -41,8 +42,8 @@ router.post("/auth/register", (req, res) => {
       token,
       user
     });
-  } catch (error: any) {
-    return res.status(400).json({ error: error.message || "Gagal melakukan registrasi." });
+  } catch (error: unknown) {
+    return res.status(400).json({ error: getErrorMessage(error, "Gagal melakukan registrasi.") });
   }
 });
 
@@ -245,8 +246,8 @@ router.post("/admin/jobs/:id/approve", requireAuth, requireAdmin, (req, res) => 
       message: `Lowongan "${updatedJob.title}" berhasil disetujui (APPROVED) dan kini tayang di halaman utama selama 30 hari kedepan! Notifikasi email otomatis telah dipicu.`,
       job: updatedJob
     });
-  } catch (error: any) {
-    return res.status(400).json({ error: error.message || "Gagal memproses persetujuan." });
+  } catch (error: unknown) {
+    return res.status(400).json({ error: getErrorMessage(error, "Gagal memproses persetujuan.") });
   }
 });
 
@@ -265,8 +266,8 @@ router.post("/admin/jobs/:id/resend-email", requireAuth, requireAdmin, async (re
       message: `Simulasi notifikasi email untuk lowongan "${job.title}" berhasil dipicu!`,
       emailLog
     });
-  } catch (error: any) {
-    return res.status(400).json({ error: error.message || "Gagal memicu simulasi notifikasi email." });
+  } catch (error: unknown) {
+    return res.status(400).json({ error: getErrorMessage(error, "Gagal memicu simulasi notifikasi email.") });
   }
 });
 
@@ -278,8 +279,8 @@ router.post("/admin/jobs/:id/reject", requireAuth, requireAdmin, (req, res) => {
       message: `Lowongan "${updatedJob.title}" berhasil ditolak (REJECTED).`,
       job: updatedJob
     });
-  } catch (error: any) {
-    return res.status(400).json({ error: error.message || "Gagal memproses penolakan." });
+  } catch (error: unknown) {
+    return res.status(400).json({ error: getErrorMessage(error, "Gagal memproses penolakan.") });
   }
 });
 
@@ -288,8 +289,8 @@ router.delete("/admin/jobs/:id", requireAuth, requireAdmin, (req, res) => {
   try {
     Database.deleteJob(req.params.id);
     return res.json({ message: "Lowongan kerja berhasil dihapus secara permanen dari sistem." });
-  } catch (error: any) {
-    return res.status(400).json({ error: error.message || "Gagal menghapus lowongan." });
+  } catch (error: unknown) {
+    return res.status(400).json({ error: getErrorMessage(error, "Gagal menghapus lowongan.") });
   }
 });
 
@@ -309,8 +310,8 @@ router.get("/employer/applications", requireAuth, (req: AuthenticatedRequest, re
       applications,
       total: applications.length
     });
-  } catch (error: any) {
-    return res.status(500).json({ error: error.message || "Gagal mengambil daftar pelamar HRD." });
+  } catch (error: unknown) {
+    return res.status(500).json({ error: getErrorMessage(error, "Gagal mengambil daftar pelamar HRD.") });
   }
 });
 
@@ -335,8 +336,8 @@ router.get("/jobs/:id/applicants", requireAuth, (req: AuthenticatedRequest, res:
       applicants,
       total: applicants.length
     });
-  } catch (error: any) {
-    return res.status(500).json({ error: error.message || "Gagal mengambil daftar pelamar." });
+  } catch (error: unknown) {
+    return res.status(500).json({ error: getErrorMessage(error, "Gagal mengambil daftar pelamar.") });
   }
 });
 
@@ -356,8 +357,8 @@ const updateApplicantStatusHandler = (req: AuthenticatedRequest, res: Response) 
       message: `Status pelamar berhasil diperbarui menjadi "${status}".`,
       application: updatedApp
     });
-  } catch (error: any) {
-    return res.status(400).json({ error: error.message || "Gagal memperbarui status pelamar." });
+  } catch (error: unknown) {
+    return res.status(400).json({ error: getErrorMessage(error, "Gagal memperbarui status pelamar.") });
   }
 };
 
@@ -396,8 +397,8 @@ router.post("/simulator/backdate", (req, res) => {
       message: `Simulasi: Lowongan "${updatedJob.title}" berhasil di-backdate menjadi ${daysAgo} hari yang lalu.`,
       job: updatedJob
     });
-  } catch (error: any) {
-    return res.status(400).json({ error: error.message || "Gagal melakukan backdate." });
+  } catch (error: unknown) {
+    return res.status(400).json({ error: getErrorMessage(error, "Gagal melakukan backdate.") });
   }
 });
 

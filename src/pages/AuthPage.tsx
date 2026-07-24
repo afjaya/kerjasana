@@ -9,6 +9,7 @@ import { Helmet } from "react-helmet-async";
 import { Key, Mail, User, Shield, AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
 import { User as UserType } from "../types";
 import { useToast } from "../context/ToastContext";
+import { getErrorMessage } from "../utils/getErrorMessage";
 
 interface AuthPageProps {
   onLoginSuccess: (token: string, user: UserType) => void;
@@ -86,8 +87,8 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
         }
       }, 800);
 
-    } catch (err: any) {
-      const errorMsg = err.message || "Gagal menyambung ke server.";
+    } catch (err: unknown) {
+      const errorMsg = getErrorMessage(err, "Gagal menyambung ke server.");
       setError(errorMsg);
       toast.error(errorMsg, "Autentikasi Gagal");
     } finally {

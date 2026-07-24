@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import cron from "node-cron";
+import cron, { ScheduledTask } from "node-cron";
 import { Database } from "../db";
 
 // Menyimpan referensi ke instance cron job agar bisa dipantau/dihentikan jika perlu
-let jobInstance: any = null;
+let jobInstance: ScheduledTask | null = null;
 
 export function initCronJobs() {
   console.log("[CRON] Menginisialisasi sistem cron auto-expire...");

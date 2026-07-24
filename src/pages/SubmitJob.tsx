@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { User, Job, Transaction, Application, ApplicationStatus } from "../types";
 import { useToast } from "../context/ToastContext";
+import { getErrorMessage } from "../utils/getErrorMessage";
 import EmptyState from "../components/EmptyState";
 import { Helmet } from "react-helmet-async";
 import UpgradeFeaturedModal from "../components/UpgradeFeaturedModal";
@@ -279,9 +280,10 @@ export default function SubmitJob({ user }: SubmitJobProps) {
       setRequirements("");
       setContact("");
 
-    } catch (err: any) {
-      setError(err.message || "Gagal melakukan registrasi.");
-      toast.error(err.message || "Gagal mengajukan lowongan kerja.", "Pengajuan Gagal");
+    } catch (err: unknown) {
+      const msg = getErrorMessage(err, "Gagal melakukan registrasi.");
+      setError(msg);
+      toast.error(getErrorMessage(err, "Gagal mengajukan lowongan kerja."), "Pengajuan Gagal");
     } finally {
       setIsLoading(false);
     }

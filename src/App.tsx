@@ -66,7 +66,7 @@ function AppContent() {
       // Kita panggil endpoint publik saja, atau jika admin panggil endpoint admin
       const token = localStorage.getItem("token");
       const url = user?.role === "ADMIN" ? "/api/admin/jobs" : "/api/jobs";
-      const headers: any = {};
+      const headers: HeadersInit = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const res = await fetch(url, { headers });
