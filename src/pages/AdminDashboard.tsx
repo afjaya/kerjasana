@@ -153,7 +153,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   };
 
   // Aksi 2: Take Down Loker yang dilaporkan (Ubah status job -> REJECTED)
-  const handleTakeDownReportedJob = async (jobId: string, jobTitle: string) => {
+  const handleTakeDownReportedJob = async (jobId: string, jobTitle?: string) => {
     try {
       const res = await fetch(`/api/admin/jobs/${jobId}/take-down`, {
         method: "POST",
@@ -163,7 +163,10 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success(`Lowongan "${jobTitle}" telah di-take down & status laporan diperbarui!`, "Loker Di-Take Down");
+        toast.success(
+          `Lowongan "${jobTitle ?? "tersebut"}" telah di-take down & status laporan diperbarui!`,
+          "Loker Di-Take Down"
+        );
         fetchAdminJobs();
         fetchReports();
         window.dispatchEvent(new Event("refresh-jobs"));
@@ -641,9 +644,9 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                         <td className="px-5 py-4">
                           <div className="font-bold text-slate-800">{report.employerName}</div>
                           <div className="text-[10px] text-slate-400 font-mono">{report.employerEmail}</div>
-                          {report.isEmployerBanned && (
+                          {report?.employerIsBanned === true && (
                             <span className="inline-block mt-1 bg-rose-100 text-rose-800 border border-rose-300 px-2 py-0.5 rounded text-[9px] font-black uppercase">
-                              🚫 BANNED
+                            🚫 BANNED
                             </span>
                           )}
                         </td>
@@ -707,17 +710,17 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                           {/* Tombol 3: BANNED HRD BODONG */}
                           <button
                             onClick={() => setConfirmBanModal({
-                              userId: report.employerId,
-                              userName: report.employerName,
-                              userEmail: report.employerEmail,
-                              companyName: report.company
+                              userId: report.employerId || '',
+                              userName: report.employerName || '',
+                              userEmail: report.employerEmail || '',
+                              companyName: report.company || ''
                             })}
-                            disabled={report.isEmployerBanned}
+                            disabled={report.employerIsBanned}
                             className="w-full px-2.5 py-1.5 text-[10px] font-extrabold bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300 text-white rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
                             title="Blokir permanen akun HRD bodong & hapus seluruh lokernya"
                           >
                             <Ban className="w-3 h-3" />
-                            {report.isEmployerBanned ? "HRD SUDAH BANNED" : "BANNED HRD BODONG"}
+                            {report.employerIsBanned ? "HRD SUDAH BANNED" : "BANNED HRD BODONG"}
                           </button>
                         </td>
                       </tr>
