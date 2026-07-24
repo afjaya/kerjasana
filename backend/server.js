@@ -10,6 +10,8 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const jobRoutes = require('./routes/jobRoutes');
+// 1. IMPORT ROUTE AUTH DI SINI:
+const authRoutes = require('./routes/authRoutes'); // atau tempat file authRoutes kamu berada
 const { initCronJobs } = require('./utils/cron');
 
 // Muat variabel lingkungan
@@ -25,6 +27,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // Rute API Utama
 app.use('/api', jobRoutes);
+// 2. PASANG ROUTE AUTH DI SINI:
+app.use('/api/auth', authRoutes); // membuat endpoint /api/auth/register, /api/auth/login, dll.
 
 // Jalankan Sistem Cron untuk Auto-Expire (Setiap tengah malam)
 initCronJobs();
