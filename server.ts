@@ -7,7 +7,6 @@
 
 import express, { Request, Response, NextFunction } from "express";
 import path from "path";
-import cors from "cors";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 
@@ -31,12 +30,19 @@ async function startServer() {
   // ==========================================================
   // 1. MIDDLEWARE GLOBAL & CORS
   // ==========================================================
-  app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-  }));
-
+  // ==========================================================
+  // 1. MIDDLEWARE GLOBAL & CORS MANUAL (TANPA DEPENDENCY CORS)
+  // ==========================================================
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
   // Parsing JSON & URL-encoded Form Body
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
