@@ -1,55 +1,18 @@
 {
   "users": [
+   
     {
-      "id": "user-admin",
-      "name": "Admin Kerjasana",
-      "email": "admin@kerjasana.com",
+      "id": "user-kk0xf37nz",
+      "name": "Admin",
+      "email": "afjayabali26@gmail.com",
       "role": "ADMIN",
-      "passwordHash": "admin123",
-      "createdAt": "2026-07-18T15:02:54.506Z",
       "subscriptionPlan": "FREE",
-      "jobPostingQuota": 999
-    },
-    {
-      "id": "user-hrd1",
-      "name": "Budi Setiawan (HRD Tokopedia)",
-      "email": "budi@tokopedia.com",
-      "role": "USER",
-      "passwordHash": "owner123",
-      "createdAt": "2026-07-18T15:02:54.507Z",
-      "subscriptionPlan": "FREE",
-      "jobPostingQuota": 2
-    },
-    {
-      "id": "user-hrd2",
-      "name": "Siti Rahma (Owner Kopi Kenangan)",
-      "email": "siti@kopikenangan.com",
-      "role": "USER",
-      "passwordHash": "owner123",
-      "createdAt": "2026-07-18T15:02:54.507Z",
-      "subscriptionPlan": "FREE",
-      "jobPostingQuota": 2
-    },
-    {
-      "id": "user-64b9wk6fr",
-      "name": "bangbromedia",
-      "email": "saya@bangbromedia.com",
-      "role": "USER",
-      "createdAt": "2026-07-18T15:03:52.948Z",
-      "passwordHash": "123456",
-      "subscriptionPlan": "FREE",
-      "jobPostingQuota": 2
-    },
-    {
-      "id": "user-aj5982s6u",
-      "name": "pelamarmu",
-      "email": "bangrijal@gmail.com",
-      "role": "CANDIDATE",
-      "subscriptionPlan": "FREE",
-      "jobPostingQuota": 0,
-      "createdAt": "2026-07-22T16:56:11.610Z",
-      "passwordHash": "suwung26"
+      "jobPostingQuota": 2,
+      "createdAt": "2026-07-24T12:13:24.961Z",
+      "passwordHash": "Suwung26",
+      "isBanned": false
     }
+    
   ],
   "jobs": [
     {
@@ -188,5 +151,6 @@
   ],
   "profiles": [],
   "applications": [],
-  "transactions": []
+  "transactions": [],
+  "reports": []
 }

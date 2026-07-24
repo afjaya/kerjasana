@@ -20,7 +20,7 @@
         "react-dom": "^19.0.1",
         "react-helmet-async": "^3.0.0",
         "react-router-dom": "^7.18.1",
-        "vite": "^6.2.3",
+        "vite": "^6.2.3"
       },
       "devDependencies": {
         "@types/express": "^4.17.21",
@@ -33,9 +33,9 @@
         "tailwindcss": "^4.1.14",
         "tsx": "^4.21.0",
         "typescript": "~5.8.2",
-        "vite": "^6.2.3",
-      },
-    },
+        "vite": "^6.2.3"
+      }
+    }
   },
   "packages": {
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
