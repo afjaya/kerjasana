@@ -90,5 +90,29 @@ router.post('/login', async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Gagal memproses login ke database." });
   }
 });
+// ==========================================
+// 3. ENDPOINT CEK SESI USER (GET /api/auth/me)
+// ==========================================
+router.get('/me', async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "Token tidak ditemukan, silakan login." });
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    // Cek token sederhana / Decode JWT jika ada
+    // Untuk saat ini kita return status unauthenticated jika tidak ada token valid
+    if (!token || token === 'null' || token === 'undefined') {
+      return res.status(401).json({ error: "Sesi telah berakhir." });
+    }
+
+    // Jika token ada, bisa cari user di DB
+    return res.json({ message: "Sesi aktif" });
+  } catch (error) {
+    return res.status(401).json({ error: "Sesi tidak valid." });
+  }
+});
 
 export default router;

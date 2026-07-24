@@ -11,7 +11,7 @@ import jobRoutes from "./src/server/routes/jobRoutes";
 import candidateRoutes from "./src/server/routes/candidateRoutes";
 import paymentRoutes from "./src/server/routes/paymentRoutes";
 import reportRoutes from "./src/server/routes/reportRoutes";
-// authRoutes import removed because ./src/server/routes/authRoutes does not exist in this project yet.
+import authRoutes from "./src/server/routes/authRoutes"; // <-- 1. TAMBAHKAN IMPORT INI!
 import { initCronJobs } from "./src/server/utils/cron";
 
 // Load environment variables
