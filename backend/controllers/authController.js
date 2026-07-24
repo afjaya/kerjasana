@@ -16,11 +16,13 @@ exports.register = async (req, res) => {
     }
 
     // Simpan User Baru LANGSUNG KE SUPABASE
+    // NOTE: Prisma schema expects `passwordHash` column. Using that field name here.
+    // In production, replace this with a proper hash (bcrypt) before storing.
     const newUser = await prisma.user.create({
       data: {
         name,
         email,
-        password, // Disarankan pakai bcrypt di produksi
+        passwordHash: password, // TODO: hash with bcrypt in production
         role: role || 'USER'
       }
     });
@@ -50,7 +52,8 @@ exports.login = async (req, res) => {
       where: { email }
     });
 
-    if (!user || user.password !== password) {
+    // Compare with stored passwordHash (replace with bcrypt.compare in production)
+    if (!user || user.passwordHash !== password) {
       return res.status(401).json({ error: "Email atau password salah!" });
     }
 

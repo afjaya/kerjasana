@@ -4,8 +4,9 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("postgresql://postgres.njqiolrqcvkexryykbvb:Serenade33%23%23%2A%2A@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true")
-  directUrl = env("postgresql://postgres.njqiolrqcvkexryykbvb:Serenade33%23%23%2A%2A@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres")
+  // Use environment variables so credentials are loaded from .env
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ==========================================
