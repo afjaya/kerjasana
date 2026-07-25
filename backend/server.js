@@ -11,9 +11,8 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const jobRoutes = require('./routes/jobRoutes');
 const { initCronJobs } = require('./utils/cron');
-const { Database } = require('./db'); // 🟢 Tambahkan import Database jika dipanggil di sini
+const { Database } = require('./db');
 
-// Muat variabel lingkungan
 dotenv.config();
 
 const app = express();
@@ -24,12 +23,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rute API Utama
-app.use('/api', jobRoutes);
-
-// 🟢 ==========================================
-// 1. ENDPOINT VERIFIKASI EMAIL (GET)
-// 🟢 ==========================================
+// Endpoint Verifikasi Email
 app.get('/api/verify-email', async (req, res) => {
   try {
     const { token } = req.query;
@@ -43,7 +37,7 @@ app.get('/api/verify-email', async (req, res) => {
     const user = await Database.verifyEmailToken(token);
 
     return res.status(200).json({
-      message: "Email Anda berhasil diverifikasi!",
+      message: "Email Anda berhasil diverifikasi! Silakan login.",
       user,
     });
   } catch (error) {
@@ -53,9 +47,7 @@ app.get('/api/verify-email', async (req, res) => {
   }
 });
 
-// 🟢 ==========================================
-// 2. ENDPOINT RESEND VERIFIKASI EMAIL (POST)
-// 🟢 ==========================================
+// Endpoint Resend Link Verifikasi
 app.post('/api/resend-verification', async (req, res) => {
   try {
     const { email } = req.body;
@@ -76,10 +68,13 @@ app.post('/api/resend-verification', async (req, res) => {
   }
 });
 
-// Jalankan Sistem Cron untuk Auto-Expire (Setiap tengah malam)
+// Rute API Utama (termasuk Auth & Jobs)
+app.use('/api', jobRoutes);
+
+// Cron Job Auto-Expire
 initCronJobs();
 
-// Handler kesehatan server dasar
+// Health Check
 app.get('/health', (req, res) => {
   res.json({ 
     status: "healthy", 
@@ -88,7 +83,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Menangani rute tidak terdefinisi (404)
+// Handler 404
 app.use((req, res) => {
   res.status(404).json({ error: "Endpoint API tidak ditemukan." });
 });
