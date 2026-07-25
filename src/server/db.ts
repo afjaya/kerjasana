@@ -321,7 +321,64 @@ export class Database {
     return this.read().users.find((u) => u.id === id);
   }
 
-  public static createUser(name: string, email: string, passwordHash: string, role: UserRole = "USER"): User {
+  public static findUserByVerificationToken(token: string) {
+    if (!token) return undefined;
+    return this.read().users.find((u) => u.verificationToken === token);
+  }
+
+  public static verifyUserToken(token: string): User {
+    const data = this.read();
+    const index = data.users.findIndex((u) => u.verificationToken === token);
+    if (index === -1) {
+      throw new Error("Token verifikasi email tidak valid atau telah kedaluwarsa.");
+    }
+
+    const user = data.users[index];
+    user.isVerified = true;
+    delete user.verificationToken;
+    user.updatedAt = new Date().toISOString();
+
+    this.write(data);
+    
+    // Return sanitized user without passwordHash
+    const { passwordHash, ...sanitized } = user as any;
+    return sanitized as User;
+  }
+
+  public static setVerificationToken(userId: string, token: string): User {
+    const data = this.read();
+    const index = data.users.findIndex((u) => u.id === userId);
+    if (index === -1) {
+      throw new Error("Pengguna tidak ditemukan.");
+    }
+
+    data.users[index].verificationToken = token;
+    data.users[index].isVerified = false;
+    data.users[index].updatedAt = new Date().toISOString();
+
+    this.write(data);
+
+    const { passwordHash, ...sanitized } = data.users[index] as any;
+    return sanitized as User;
+  }
+
+  public static updateUserLastLogin(userId: string): void {
+    const data = this.read();
+    const index = data.users.findIndex((u) => u.id === userId);
+    if (index !== -1) {
+      (data.users[index] as any).updatedAt = new Date().toISOString();
+      this.write(data);
+    }
+  }
+
+  public static createUser(
+    name: string,
+    email: string,
+    passwordHash: string,
+    role: UserRole = "USER",
+    isVerified: boolean = true,
+    verificationToken?: string
+  ): User {
     const data = this.read();
     
     // Validasi email unik
@@ -336,7 +393,9 @@ export class Database {
       email,
       role,
       subscriptionPlan: role === "ADMIN" ? "ENTERPRISE" : "FREE",
-      jobPostingQuota: role === "ADMIN" ? 999 : (role === "CANDIDATE" ? 0 : 2),
+      jobPostingQuota: role === "ADMIN" ? 999 : (role === "CANDIDATE" || role === "APPLICANT" ? 0 : 2),
+      isVerified,
+      verificationToken,
       createdAt: new Date().toISOString()
     };
 
@@ -607,6 +666,17 @@ export class Database {
     const existingIndex = data.profiles.findIndex((p) => p.userId === userId);
     const now = new Date().toISOString();
 
+    // Sync avatarUrl to user record if provided
+    if (profileData.avatarUrl !== undefined) {
+      const uIdx = data.users.findIndex((u) => u.id === userId);
+      if (uIdx !== -1) {
+        data.users[uIdx].avatarUrl = profileData.avatarUrl;
+        data.users[uIdx].updatedAt = now;
+      }
+    }
+
+    let resultProfile: CandidateProfile;
+
     if (existingIndex >= 0) {
       const updated: CandidateProfile = {
         ...data.profiles[existingIndex],
@@ -614,12 +684,12 @@ export class Database {
         updatedAt: now
       };
       data.profiles[existingIndex] = updated;
-      this.write(data);
-      return updated;
+      resultProfile = updated;
     } else {
       const newProfile: CandidateProfile = {
         id: "prof-" + Math.random().toString(36).substring(2, 11),
         userId,
+        avatarUrl: profileData.avatarUrl || "",
         phone: profileData.phone || "",
         bio: profileData.bio || "",
         currentJobTitle: profileData.currentJobTitle || "",
@@ -633,9 +703,11 @@ export class Database {
         updatedAt: now
       };
       data.profiles.push(newProfile);
-      this.write(data);
-      return newProfile;
+      resultProfile = newProfile;
     }
+
+    this.write(data);
+    return resultProfile;
   }
 
   // Application Operations

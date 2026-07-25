@@ -10,11 +10,15 @@ import { Briefcase, AlertTriangle, ShieldCheck, Sparkles, Check, CheckCircle2 } 
 
 import { HelmetProvider } from "react-helmet-async";
 import Navbar from "./components/Navbar";
-//import SimulatorPanel from "./components/SimulatorPanel";
+import ProtectedRoute from "./components/ProtectedRoute";
+import SimulatorPanel from "./components/SimulatorPanel";
 import Home from "./pages/Home";
 import SubmitJob from "./pages/SubmitJob";
 import AdminDashboard from "./pages/AdminDashboard";
 import AuthPage from "./pages/AuthPage";
+import Login from "./pages/Login";
+import AdminLogin from "./pages/AdminLogin";
+import VerifyEmail from "./pages/VerifyEmail";
 import JobDetail from "./pages/JobDetail";
 import CandidateDashboard from "./pages/CandidateDashboard";
 import EmployerTransactions from "./pages/EmployerTransactions";
@@ -33,7 +37,8 @@ function AppContent() {
   // Memeriksa token di localStorage saat aplikasi dimuat
   const checkAuth = async () => {
     const token = localStorage.getItem("token");
-    if (!token) {
+    if (!token || token === "undefined" || token === "null" || token.trim() === "" || token.split(".").length !== 3) {
+      localStorage.removeItem("token");
       setUser(null);
       setIsCheckingAuth(false);
       return;
@@ -55,6 +60,8 @@ function AppContent() {
       }
     } catch (e) {
       console.error("Gagal melakukan otorisasi login", e);
+      localStorage.removeItem("token");
+      setUser(null);
     } finally {
       setIsCheckingAuth(false);
     }
@@ -66,8 +73,10 @@ function AppContent() {
       // Kita panggil endpoint publik saja, atau jika admin panggil endpoint admin
       const token = localStorage.getItem("token");
       const url = user?.role === "ADMIN" ? "/api/admin/jobs" : "/api/jobs";
-      const headers: HeadersInit = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const headers: any = {};
+      if (token && token !== "undefined" && token !== "null" && token.split(".").length === 3) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
 
       const res = await fetch(url, { headers });
       const data = await res.json();
@@ -187,22 +196,53 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/jobs/:id" element={<JobDetail user={user} />} />
-          <Route path="/candidate" element={<CandidateDashboard user={user} />} />
-          <Route path="/profile/transactions" element={<EmployerTransactions user={user} />} />
-          <Route path="/submit" element={<SubmitJob user={user} />} />
-          <Route path="/admin" element={<AdminDashboard user={user} />} />
-          <Route path="/auth" element={<AuthPage onLoginSuccess={handleLoginSuccess} />} />
-          <Route path="/login" element={<AuthPage onLoginSuccess={handleLoginSuccess} />} />
+          <Route
+            path="/candidate"
+            element={
+              <ProtectedRoute allowedRoles={["APPLICANT", "CANDIDATE"]} user={user}>
+                <CandidateDashboard user={user} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/transactions"
+            element={
+              <ProtectedRoute allowedRoles={["HRD", "USER", "ADMIN"]} user={user}>
+                <EmployerTransactions user={user} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/submit"
+            element={
+              <ProtectedRoute allowedRoles={["HRD", "USER"]} user={user}>
+                <SubmitJob user={user} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN"]} user={user} redirectTo="/admin/login">
+                <AdminDashboard user={user} />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/auth" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+          <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+          <Route path="/admin/login" element={<AdminLogin onLoginSuccess={handleLoginSuccess} />} />
+          <Route path="/verify-email" element={<VerifyEmail onLoginSuccess={handleLoginSuccess} />} />
+          <Route path="/auth/verify-email" element={<VerifyEmail onLoginSuccess={handleLoginSuccess} />} />
         </Routes>
 
-        {/* Panel Simulator Melayang / Di Bawah 
-          <SimulatorPanel 
+        {/* Panel Simulator Melayang / Di Bawah */}
+        <SimulatorPanel
           currentUser={user}
           onSelectUser={handleSelectUser}
           onTriggerCron={handleTriggerCron}
           onBackdateJob={handleBackdateJob}
           jobs={jobs}
-        />*/}
+        />
       </main>
 
       {/* Footer Hak Cipta */}

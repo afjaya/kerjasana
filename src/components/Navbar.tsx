@@ -132,9 +132,17 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
                   </span>
                 </div>
 
-                <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 border border-slate-200">
-                  <User className="w-4 h-4" />
-                </div>
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.name}
+                    className="w-9 h-9 rounded-full object-cover border border-slate-200 shadow-xs"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs border border-indigo-100 shadow-xs">
+                    {user.name ? user.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
+                  </div>
+                )}
 
                 <button
                   onClick={() => {

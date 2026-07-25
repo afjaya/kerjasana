@@ -4,7 +4,6 @@
  */
 
 import express, { Response } from "express";
-import { getErrorMessage } from "../utils/getErrorMessage";
 import { Database } from "../db";
 import { requireAuth, AuthenticatedRequest } from "../middleware/authMiddleware";
 
@@ -31,8 +30,8 @@ router.get("/candidate/profile", requireAuth, (req: AuthenticatedRequest, res: R
     };
 
     return res.json({ profile, user: req.user });
-  } catch (error: unknown) {
-    return res.status(500).json({ error: getErrorMessage(error, "Gagal mengambil profil kandidat.") });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || "Gagal mengambil profil kandidat." });
   }
 });
 
@@ -41,6 +40,7 @@ router.post("/candidate/profile", requireAuth, (req: AuthenticatedRequest, res: 
   try {
     const userId = req.user!.id;
     const {
+      avatarUrl,
       phone,
       bio,
       currentJobTitle,
@@ -54,6 +54,7 @@ router.post("/candidate/profile", requireAuth, (req: AuthenticatedRequest, res: 
     } = req.body;
 
     const updatedProfile = Database.upsertCandidateProfile(userId, {
+      avatarUrl,
       phone,
       bio,
       currentJobTitle,
@@ -66,12 +67,15 @@ router.post("/candidate/profile", requireAuth, (req: AuthenticatedRequest, res: 
       alertKeywords: alertKeywords || ""
     });
 
+    const refreshedUser = Database.findUserById(userId);
+
     return res.json({
-      message: "Profil & pengaturan notifikasi kandidat berhasil diperbarui!",
-      profile: updatedProfile
+      message: "Profil & foto avatar kandidat berhasil diperbarui!",
+      profile: updatedProfile,
+      user: refreshedUser
     });
-  } catch (error: unknown) {
-    return res.status(400).json({ error: getErrorMessage(error, "Gagal memperbarui profil.") });
+  } catch (error: any) {
+    return res.status(400).json({ error: error.message || "Gagal memperbarui profil." });
   }
 });
 
@@ -167,8 +171,8 @@ router.post("/candidate/test-job-alert", requireAuth, (req: AuthenticatedRequest
       sampleJobsCount: sampleJobs.length,
       matchedJobs: sampleJobs
     });
-  } catch (error: unknown) {
-    return res.status(500).json({ error: getErrorMessage(error, "Gagal mengirimkan simulasi email alert.") });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || "Gagal mengirimkan simulasi email alert." });
   }
 });
 
@@ -212,8 +216,8 @@ router.post("/jobs/:id/apply", requireAuth, (req: AuthenticatedRequest, res: Res
       candidateEmail,
       application
     });
-  } catch (error: unknown) {
-    return res.status(400).json({ error: getErrorMessage(error, "Gagal mengirimkan lamaran pekerjaan.") });
+  } catch (error: any) {
+    return res.status(400).json({ error: error.message || "Gagal mengirimkan lamaran pekerjaan." });
   }
 });
 
@@ -227,8 +231,8 @@ router.get("/candidate/applications", requireAuth, (req: AuthenticatedRequest, r
       applications,
       total: applications.length
     });
-  } catch (error: unknown) {
-    return res.status(500).json({ error: getErrorMessage(error, "Gagal mengambil daftar lamaran.") });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || "Gagal mengambil daftar lamaran." });
   }
 });
 
@@ -246,8 +250,8 @@ router.get("/candidate/check-applied/:jobId", requireAuth, (req: AuthenticatedRe
       hasApplied: !!application,
       application: application || null
     });
-  } catch (error: unknown) {
-    return res.status(500).json({ error: getErrorMessage(error, "Gagal memeriksa status lamaran.") });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || "Gagal memeriksa status lamaran." });
   }
 });
 

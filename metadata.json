@@ -1,6 +1,8 @@
 {
   "name": "Kerjasana",
   "description": "Platform lowongan kerja lokal dengan sistem approval admin dan auto-expire 30 hari.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "camera"
+  ],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

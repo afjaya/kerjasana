@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type UserRole = "ADMIN" | "USER" | "CANDIDATE";
+export type UserRole = "ADMIN" | "USER" | "CANDIDATE" | "APPLICANT" | "HRD";
 
 export type JobStatus = "PENDING" | "ACTIVE" | "REJECTED" | "EXPIRED";
 
@@ -32,6 +32,7 @@ export interface Transaction {
 export interface CandidateProfile {
   id: string;
   userId: string;
+  avatarUrl?: string;
   phone?: string;
   bio?: string;
   currentJobTitle?: string;
@@ -67,10 +68,14 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  avatarUrl?: string;
   subscriptionPlan?: string; // "FREE" | "PRO" | "ENTERPRISE"
   jobPostingQuota?: number; // Kuota posting loker
   isBanned?: boolean; // Tanda jika akun diblokir karena pelanggaran
+  isVerified?: boolean; // Tanda jika email user telah diverifikasi
+  verificationToken?: string; // Token verifikasi email
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type JobReportReason = "PUNGLI_BIAYA" | "INDIKASI_PENIPUAN" | "DATA_PALSU" | "DISKRIMINASI" | "LAINNYA";

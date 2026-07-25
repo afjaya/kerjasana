@@ -3,16 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
-import { Play, RotateCcw, ShieldCheck, UserCheck, Calendar, Info, Sparkles, CheckCircle2, FileSearch, Award, Search, AlertTriangle, ArrowRight } from "lucide-react";
-import { User, Job } from "../types";
+import React, { useState, useEffect } from "react";
+import { Play, RotateCcw, ShieldCheck, UserCheck, Calendar, Info, Sparkles, CheckCircle2, FileSearch, Award, Search, AlertTriangle, ArrowRight, Mail, ExternalLink, RefreshCw } from "lucide-react";
+import { User, EmailNotification } from "../types";
 
 interface SimulatorPanelProps {
   currentUser: User | null;
   onSelectUser: (email: string, pass: string) => void;
   onTriggerCron: () => Promise<{ expiredCount: number; updatedJobs: string[] }>;
   onBackdateJob: (jobId: string, daysAgo: number) => Promise<void>;
-  jobs: Job[];
+  jobs: any[];
 }
 
 export default function SimulatorPanel({
@@ -28,6 +28,32 @@ export default function SimulatorPanel({
   const [cronResult, setCronResult] = useState<{ expiredCount: number; updatedJobs: string[] } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [msg, setMsg] = useState("");
+
+  // Email Inspector State
+  const [emailLogs, setEmailLogs] = useState<EmailNotification[]>([]);
+  const [isFetchingEmails, setIsFetchingEmails] = useState(false);
+  const [selectedEmail, setSelectedEmail] = useState<EmailNotification | null>(null);
+
+  const fetchEmailLogs = async () => {
+    setIsFetchingEmails(true);
+    try {
+      const res = await fetch("/api/simulator/emails");
+      const data = await res.json();
+      if (data.emails) {
+        setEmailLogs(data.emails);
+      }
+    } catch (e) {
+      console.error("Gagal mengambil log email", e);
+    } finally {
+      setIsFetchingEmails(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchEmailLogs();
+    }
+  }, [isOpen]);
 
   // ATS Checker State
   const [atsJobDesc, setAtsJobDesc] = useState("Membutuhkan Web Developer dengan keahlian React, TypeScript, Node.js, Express, Tailwind CSS, REST API, Git, dan pemahaman database PostgreSQL/MongoDB.");
@@ -400,6 +426,77 @@ export default function SimulatorPanel({
                     Tidak ada lowongan aktif yang berusia di atas 30 hari. Gunakan fitur <strong>Backdate Loker</strong> di atas terlebih dahulu, kemudian jalankan kembali cron ini!
                   </p>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* Section 5: Email Notifications Log & Verification Link Inspector */}
+          <div className="bg-slate-900/90 border border-slate-700 p-4 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-sky-400" />
+                <h4 className="font-bold text-xs text-white uppercase tracking-wider">
+                  Log Email Sistem & Verifikasi (Inbox Simulator)
+                </h4>
+              </div>
+              <button
+                onClick={fetchEmailLogs}
+                disabled={isFetchingEmails}
+                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors cursor-pointer"
+                title="Refresh Email Inbox"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isFetchingEmails ? "animate-spin" : ""}`} />
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Seluruh email notifikasi pendaftaran, verifikasi, dan persetujuan pekerjaan yang terkirim dapat ditinjau di bawah ini:
+            </p>
+
+            {emailLogs.length === 0 ? (
+              <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700/50 text-center text-[11px] text-slate-400">
+                Belum ada log email yang dikirim.
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {emailLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="p-2.5 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 rounded-lg text-xs space-y-1 text-left"
+                  >
+                    <div className="flex items-center justify-between gap-1 text-[11px]">
+                      <span className="font-bold text-sky-300 truncate max-w-[180px]">{log.recipient}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {new Date(log.sentAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+
+                    <div className="font-semibold text-slate-200 text-[11px] line-clamp-1">{log.subject}</div>
+
+                    {/* Jika email berisi link verifikasi */}
+                    {log.htmlBody && log.htmlBody.includes("/verify-email?token=") && (
+                      <div className="pt-1">
+                        {(() => {
+                          const match = log.htmlBody.match(/href=["']([^"']*\/verify-email\?token=[^"']*)["']/);
+                          if (match && match[1]) {
+                            return (
+                              <a
+                                href={match[1]}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 underline"
+                              >
+                                <span>Buka Link Verifikasi Email Ini</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>

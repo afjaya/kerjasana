@@ -31,6 +31,12 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
 
   const token = authHeader.split(" ")[1];
 
+  if (!token || token === "undefined" || token === "null" || token.trim() === "" || token.split(".").length !== 3) {
+    return res.status(401).json({ 
+      error: "Akses ditolak. Format token autentikasi tidak valid." 
+    });
+  }
+
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as {
       id: string;

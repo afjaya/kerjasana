@@ -1,30 +1,11 @@
 import nodemailer from "nodemailer";
-import { PrismaClient } from "@prisma/client";
+import { Job, User, EmailNotification } from "../../types";
+import { Database } from "../db";
 
-const prisma = new PrismaClient();
-
-// Tipe data sederhana untuk parameter fungsi
-interface JobData {
-  id: string;
-  title: string;
-  company: string;
-  contact?: string;
-  postedByName?: string;
-  category?: string;
-  salary?: string;
-  location?: string;
-  expiresAt?: Date | string;
-}
-
-interface UserData {
-  name?: string;
-  email?: string;
-}
-
-let testAccountPromise: Promise<nodemailer.TestAccount> | null = null;
-import { getErrorMessage } from "./getErrorMessage";
+let testAccountPromise: Promise<any> | null = null;
 
 async function getTransporter(): Promise<nodemailer.Transporter> {
+  // 1. Cek konfigurasi SMTP mandiri dari environment variables
   const host = process.env.SMTP_HOST;
   const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
   const user = process.env.SMTP_USER;
@@ -36,19 +17,21 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
       host,
       port,
       secure: port === 465,
-      auth: { user, pass }
+      auth: {
+        user,
+        pass
+      }
     });
   }
 
-  // Fallback: Ethereal Fake SMTP untuk Testing
+  // 2. Jika tidak dikonfigurasi, gunakan real Ethereal SMTP untuk simulasi pengiriman yang menghasilkan link box email nyata!
   try {
-    console.log("[Email] SMTP Mandiri tidak ditemukan. Menggunakan Akun Testing Ethereal...");
+    console.log("[Email] SMTP Mandiri tidak ditemukan di env. Mencoba membuat akun testing Ethereal...");
     if (!testAccountPromise) {
       testAccountPromise = nodemailer.createTestAccount();
     }
     const testAccount = await testAccountPromise;
-    console.log(`[Email] Akun Ethereal Aktif: ${testAccount.user}`);
-    
+    console.log(`[Email] Berhasil inisialisasi Akun Ethereal: User: ${testAccount.user}`);
     return nodemailer.createTransport({
       host: testAccount.smtp.host,
       port: testAccount.smtp.port,
@@ -59,20 +42,16 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
       }
     });
   } catch (err) {
-    console.warn("[Email] Gagal membuat akun Ethereal:", err);
+    console.warn("[Email] Gagal membuat akun Ethereal, menggunakan logger lokal fallback.", err);
     throw err;
   }
 }
 
-export async function sendApprovalNotification(job: JobData, posterUser?: UserData) {
-  const recipientEmail = posterUser?.email || job.contact || "no-reply@kerjasana.com";
+export async function sendApprovalNotification(job: Job, posterUser?: User): Promise<EmailNotification> {
+  // Ambil email tujuan (prioritas email akun pembuat, atau contact lowongan)
+  const recipientEmail = posterUser?.email || job.contact;
   const recipientName = posterUser?.name || job.postedByName || "HRD Mitra";
   const subject = `Selamat! Lowongan "${job.title}" Anda telah Disetujui & Mulai Tayang 🎉`;
-
-  // Safely format Expiration Date
-  const formattedExpireDate = job.expiresAt
-    ? new Date(job.expiresAt).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })
-    : "30 Hari ke depan";
 
   const html = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #f1f5f9; border-radius: 24px; background-color: #ffffff; color: #1e293b; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);">
@@ -103,11 +82,11 @@ export async function sendApprovalNotification(job: JobData, posterUser?: UserDa
           </tr>
           <tr>
             <td style="padding: 6px 0; font-weight: 600; color: #64748b;">Estimasi Gaji</td>
-            <td style="padding: 6px 0; font-weight: 500; color: #0f172a;">: ${job.salary || "Sesuai kesepakatan"}</td>
+            <td style="padding: 6px 0; font-weight: 500; color: #0f172a;">: ${job.salary}</td>
           </tr>
           <tr>
             <td style="padding: 6px 0; font-weight: 600; color: #64748b;">Lokasi Penempatan</td>
-            <td style="padding: 6px 0; font-weight: 500; color: #334155;">: ${job.location || "Indonesia"}</td>
+            <td style="padding: 6px 0; font-weight: 500; color: #334155;">: ${job.location}</td>
           </tr>
           <tr>
             <td style="padding: 8px 0 6px 0; font-weight: 600; color: #64748b; border-top: 1px dashed #e2e8f0;">Status Tayang</td>
@@ -115,24 +94,33 @@ export async function sendApprovalNotification(job: JobData, posterUser?: UserDa
           </tr>
           <tr>
             <td style="padding: 6px 0; font-weight: 600; color: #64748b;">Masa Kadaluarsa</td>
-            <td style="padding: 6px 0; font-weight: 700; color: #e11d48;">: s.d. ${formattedExpireDate}</td>
+            <td style="padding: 6px 0; font-weight: 700; color: #e11d48;">: s.d. ${new Date(job.expiresAt).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} (30 Hari)</td>
           </tr>
         </table>
       </div>
 
       <div style="text-align: center; margin-bottom: 28px;">
-        <a href="${process.env.APP_URL || 'http://localhost:3000'}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; font-weight: 700; font-size: 14px; text-decoration: none; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);">Lihat Detail Lowongan</a>
+        <p style="font-size: 13px; color: #64748b; margin-bottom: 14px;">Silakan klik tombol di bawah untuk melihat tampilan lowongan kerja Anda di platform kami:</p>
+        <a href="${process.env.APP_URL || 'http://localhost:3000'}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; font-weight: 700; font-size: 14px; text-decoration: none; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25); transition: background-color 0.2s;">Lihat Detail Lowongan</a>
       </div>
 
       <div style="border-top: 1px solid #f1f5f9; padding-top: 18px; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.6;">
-        <p style="margin: 0;">Email ini dikirimkan secara otomatis oleh sistem Kerjasana.</p>
+        <p style="margin: 0;">Email ini dikirimkan secara otomatis oleh sistem Kerjasana karena Anda terdaftar sebagai pengiklan lowongan tersebut.</p>
         <p style="margin: 4px 0 0 0;">&copy; 2026 Kerjasana Platform. Hak Cipta Dilindungi.</p>
       </div>
     </div>
   `;
 
-  let status = "FAILED";
-  let etherealUrl: string | undefined = undefined;
+  const emailLog: Omit<EmailNotification, "id" | "sentAt"> = {
+    jobId: job.id,
+    jobTitle: job.title,
+    company: job.company,
+    recipientEmail,
+    recipientName,
+    subject,
+    html,
+    status: "FAILED"
+  };
 
   try {
     const transporter = await getTransporter();
@@ -146,33 +134,102 @@ export async function sendApprovalNotification(job: JobData, posterUser?: UserDa
     });
 
     console.log(`[Email] Notifikasi terkirim ke ${recipientEmail}. MessageId: ${info.messageId}`);
-    status = "SENT";
-
-    const testUrl = nodemailer.getTestMessageUrl(info);
-    if (testUrl) {
-      etherealUrl = testUrl;
-      console.log(`[Email] [PREVIEW ETHEREAL] -> ${etherealUrl}`);
+    emailLog.status = "SENT";
+    
+    // Ambil link preview Ethereal nyata jika ada
+    const etherealUrl = nodemailer.getTestMessageUrl(info);
+    if (etherealUrl) {
+      console.log(`[Email] [PREVIEW DI ETHEREAL] -> ${etherealUrl}`);
+      emailLog.etherealUrl = etherealUrl;
     }
-  } catch (error: unknown) {
-    console.error("[Email] Gagal mengirim email:", getErrorMessage(error));
+  } catch (error: any) {
+    console.error("[Email] Gagal melakukan dispatch pengiriman email:", error);
+    emailLog.status = "FAILED";
+    emailLog.error = error.message || String(error);
   }
 
-  // Jika tabel EmailNotification ada di schema.prisma, kamu bisa aktifkan ini:
-  /*
-  const log = await prisma.emailNotification.create({
-    data: {
-      jobId: job.id,
-      jobTitle: job.title,
-      company: job.company,
-      recipientEmail,
-      recipientName,
-      subject,
-      status,
-      etherealUrl
-    }
-  });
-  return log;
-  */
+  // Simpan record ke DB agar Admin atau HRD bisa membukanya dari UI dashboard
+  const loggedEmail = Database.logEmail(emailLog);
+  return loggedEmail;
+}
 
-  return { recipientEmail, status, etherealUrl };
+export async function sendVerificationEmail(user: User, token: string): Promise<EmailNotification> {
+  const recipientEmail = user.email;
+  const recipientName = user.name || "Pengguna Kerjasana";
+  const roleLabel = user.role === "HRD" || user.role === "USER" ? "Pemberi Kerja / HRD" : "Pelamar Kerja";
+  const subject = `[Kerjasana] Verifikasi Alamat Email Akun ${roleLabel} Anda ✉️`;
+
+  const baseUrl = process.env.APP_URL || "http://localhost:3000";
+  const verificationUrl = `${baseUrl}/verify-email?token=${token}`;
+
+  const html = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #f1f5f9; border-radius: 24px; background-color: #ffffff; color: #1e293b; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);">
+      <div style="text-align: center; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid #f1f5f9;">
+        <h1 style="color: #059669; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.03em;">KERJASANA</h1>
+        <p style="margin: 4px 0 0 0; font-size: 11px; color: #10b981; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em;">Aktivasi Akun Baru ${roleLabel}</p>
+      </div>
+      
+      <div style="margin-bottom: 24px;">
+        <p style="font-size: 16px; font-weight: 700; margin: 0 0 10px 0; color: #0f172a;">Halo ${recipientName},</p>
+        <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 16px 0;">
+          Selamat datang di platform Kerjasana.com! Anda telah mendaftar sebagai <strong>${roleLabel}</strong>. Untuk menjaga keamanan akun dan mengaktifkan akses penuh, silakan verifikasi alamat email Anda.
+        </p>
+      </div>
+
+      <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
+        <p style="font-size: 13px; font-weight: 600; color: #166534; margin: 0 0 16px 0;">Klik tombol hijau di bawah ini untuk memverifikasi akun Anda secara instan:</p>
+        <a href="${verificationUrl}" style="display: inline-block; background-color: #059669; color: #ffffff; font-weight: 800; font-size: 15px; text-decoration: none; padding: 14px 32px; border-radius: 12px; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);">
+          Verifikasi Email Saya
+        </a>
+      </div>
+
+      <div style="margin-bottom: 24px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; p: 16px; font-size: 12px; color: #64748b; line-height: 1.5;">
+        <p style="margin: 0 0 6px 0; font-weight: 700; color: #334155;">Atau salin & tempel tautan berikut di browser Anda:</p>
+        <p style="margin: 0; word-break: break-all; font-family: monospace; color: #2563eb;">${verificationUrl}</p>
+      </div>
+
+      <div style="border-top: 1px solid #f1f5f9; padding-top: 18px; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.6;">
+        <p style="margin: 0;">Jika Anda tidak merasa mendaftar di Kerjasana.com, silakan abaikan email ini.</p>
+        <p style="margin: 4px 0 0 0;">&copy; 2026 Kerjasana Platform. Hak Cipta Dilindungi.</p>
+      </div>
+    </div>
+  `;
+
+  const emailLog: Omit<EmailNotification, "id" | "sentAt"> = {
+    jobId: "SYSTEM_VERIFICATION",
+    jobTitle: `Verifikasi Akun ${roleLabel}`,
+    company: "Kerjasana System",
+    recipientEmail,
+    recipientName,
+    subject,
+    html,
+    status: "FAILED"
+  };
+
+  try {
+    const transporter = await getTransporter();
+    const from = process.env.SMTP_FROM || "no-reply@kerjasana.com";
+
+    const info = await transporter.sendMail({
+      from: `"Kerjasana Auth" <${from}>`,
+      to: recipientEmail,
+      subject,
+      html
+    });
+
+    console.log(`[Email] Email verifikasi dikirim ke ${recipientEmail}. MessageId: ${info.messageId}`);
+    emailLog.status = "SENT";
+    
+    const etherealUrl = nodemailer.getTestMessageUrl(info);
+    if (etherealUrl) {
+      emailLog.etherealUrl = etherealUrl;
+    }
+  } catch (error: any) {
+    console.error("[Email] Gagal mengirimkan email verifikasi:", error);
+    emailLog.status = "FAILED";
+    emailLog.error = error.message || String(error);
+  }
+
+  const loggedEmail = Database.logEmail(emailLog);
+  return loggedEmail;
 }

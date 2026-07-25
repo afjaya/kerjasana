@@ -31,12 +31,17 @@ import {
   Bell,
   Mail,
   Send,
-  Sliders
+  Sliders,
+  Camera,
+  Upload,
+  Trash2,
+  Image as ImageIcon
 } from "lucide-react";
 import { User, Application, CandidateProfile } from "../types";
 import { useToast } from "../context/ToastContext";
-import { getErrorMessage } from "../utils/getErrorMessage";
 import EmptyState from "../components/EmptyState";
+import AvatarPickerModal from "../components/AvatarPickerModal";
+import { generateInitialsAvatar } from "../utils/avatarUtils";
 
 interface CandidateDashboardProps {
   user: User | null;
@@ -50,6 +55,8 @@ export default function CandidateDashboard({ user }: CandidateDashboardProps) {
   const [activeTab, setActiveTab] = useState<"applications" | "profile">("applications");
 
   // Form State Profil & Job Alerts
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("");
   const [currentJobTitle, setCurrentJobTitle] = useState("");
@@ -80,6 +87,7 @@ export default function CandidateDashboard({ user }: CandidateDashboardProps) {
   useEffect(() => {
     if (profileData?.profile) {
       const p = profileData.profile;
+      setAvatarUrl(p.avatarUrl || user?.avatarUrl || "");
       setPhone(p.phone || "");
       setBio(p.bio || "");
       setCurrentJobTitle(p.currentJobTitle || "");
@@ -90,8 +98,47 @@ export default function CandidateDashboard({ user }: CandidateDashboardProps) {
       setAlertCategory(p.alertCategory || "");
       setAlertLocation(p.alertLocation || "");
       setAlertKeywords(p.alertKeywords || "");
+    } else if (user?.avatarUrl) {
+      setAvatarUrl(user.avatarUrl);
     }
-  }, [profileData]);
+  }, [profileData, user]);
+
+  // Handler simpan avatar baru langsung ke backend
+  const handleSelectAvatar = async (selectedUrl: string) => {
+    setAvatarUrl(selectedUrl);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/candidate/profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          avatarUrl: selectedUrl,
+          phone,
+          bio,
+          currentJobTitle,
+          skills,
+          resumeUrl,
+          portfolioUrl,
+          dailyEmailAlerts,
+          alertCategory,
+          alertLocation,
+          alertKeywords
+        })
+      });
+      if (res.ok) {
+        toast.success(
+          selectedUrl ? "Foto avatar profil berhasil diperbarui!" : "Foto avatar dikembalikan ke default.",
+          "Foto Profil Disimpan"
+        );
+        queryClient.invalidateQueries({ queryKey: ["candidateProfile"] });
+      }
+    } catch (err) {
+      console.error("Gagal menyimpan foto avatar", err);
+    }
+  };
 
   // 2. Query Data Daftar Lamaran Candidate
   const { data: appsData, isLoading: isAppsLoading } = useQuery({
@@ -118,6 +165,7 @@ export default function CandidateDashboard({ user }: CandidateDashboardProps) {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
+          avatarUrl,
           phone,
           bio,
           currentJobTitle,
@@ -143,8 +191,8 @@ export default function CandidateDashboard({ user }: CandidateDashboardProps) {
       );
       queryClient.invalidateQueries({ queryKey: ["candidateProfile"] });
     },
-    onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Gagal menyimpan."), "Error");
+    onError: (err: any) => {
+      toast.error(err.message || "Gagal menyimpan.", "Error");
     }
   });
 
@@ -164,8 +212,8 @@ export default function CandidateDashboard({ user }: CandidateDashboardProps) {
       if (!res.ok) throw new Error(data.error || "Gagal mengirimkan email sampel.");
 
       toast.success(data.message, "Email Alert Terkirim!");
-    } catch (err: unknown) {
-      toast.error(getErrorMessage(err, "Terjadi kesalahan saat test alert."), "Gagal Test Alert");
+    } catch (err: any) {
+      toast.error(err.message || "Terjadi kesalahan saat test alert.", "Gagal Test Alert");
     } finally {
       setIsTestingAlert(false);
     }
@@ -265,16 +313,41 @@ export default function CandidateDashboard({ user }: CandidateDashboardProps) {
 
       {/* Header Utama & Profil Singkat */}
       <div className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl text-white p-6 sm:p-8 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold text-indigo-200 border border-white/10">
-            <UserIcon className="w-3.5 h-3.5" /> Portal Pelamar Kerjasana
+        <div className="flex items-center gap-5">
+          {/* Avatar Profile Picture Frame */}
+          <div className="relative group shrink-0">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden ring-4 ring-white/20 shadow-xl bg-indigo-800 flex items-center justify-center">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+              ) : (
+                <img
+                  src={generateInitialsAvatar(user.name, "indigo")}
+                  alt={user.name}
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+            {/* Quick Camera Trigger Overlay Button */}
+            <button
+              onClick={() => setIsAvatarPickerOpen(true)}
+              className="absolute bottom-0 right-0 p-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-lg border-2 border-indigo-900 transition-transform group-hover:scale-110 cursor-pointer"
+              title="Ubah Foto Avatar"
+            >
+              <Camera className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Selamat Datang, {user.name}
-          </h1>
-          <p className="text-xs sm:text-sm text-indigo-200 max-w-xl">
-            {currentJobTitle || "Pencari Kerja Aktif"} • {user.email}
-          </p>
+
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold text-indigo-200 border border-white/10">
+              <UserIcon className="w-3.5 h-3.5" /> Portal Pelamar Kerjasana
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              Selamat Datang, {user.name}
+            </h1>
+            <p className="text-xs sm:text-sm text-indigo-200 max-w-xl">
+              {currentJobTitle || "Pencari Kerja Aktif"} • {user.email}
+            </p>
+          </div>
         </div>
 
         <Link
@@ -437,6 +510,52 @@ export default function CandidateDashboard({ user }: CandidateDashboardProps) {
             }}
             className="space-y-6"
           >
+            {/* Section Foto Profil & Personal Avatar */}
+            <div className="p-5 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex flex-col sm:flex-row items-center justify-between gap-5">
+              <div className="flex items-center gap-4">
+                <div className="relative group shrink-0">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden ring-4 ring-white shadow-md bg-white flex items-center justify-center">
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <img
+                        src={generateInitialsAvatar(user.name, "indigo")}
+                        alt={user.name}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1 text-center sm:text-left">
+                  <h4 className="text-sm font-bold text-slate-900">Foto Profil & Personal Avatar</h4>
+                  <p className="text-xs text-slate-500 max-w-sm">
+                    Foto avatar akan ditampilkan pada aplikasi lamaran kerja Anda dan dapat diambil via kamera, unggahan file, atau generator inisial.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsAvatarPickerOpen(true)}
+                  className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  Atur Foto / Avatar
+                </button>
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelectAvatar("")}
+                    className="px-3 py-2.5 bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 hover:border-rose-200 font-bold text-xs rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Hapus
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Nama Lengkap (Read-only) */}
               <div className="space-y-1.5">
@@ -685,6 +804,15 @@ export default function CandidateDashboard({ user }: CandidateDashboardProps) {
           </form>
         </div>
       )}
+
+      {/* Modal Selection / Camera / Initials Avatar */}
+      <AvatarPickerModal
+        isOpen={isAvatarPickerOpen}
+        onClose={() => setIsAvatarPickerOpen(false)}
+        currentAvatarUrl={avatarUrl}
+        userName={user.name}
+        onSelectAvatar={handleSelectAvatar}
+      />
     </div>
   );
 }

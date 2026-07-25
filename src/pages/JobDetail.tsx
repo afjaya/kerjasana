@@ -36,7 +36,6 @@ import {
 } from "lucide-react";
 import { Job, User, JobReportReason } from "../types";
 import { useToast } from "../context/ToastContext";
-import { getErrorMessage } from "../utils/getErrorMessage";
 
 interface JobDetailProps {
   user: User | null;
@@ -166,8 +165,8 @@ export default function JobDetail({ user }: JobDetailProps) {
       queryClient.invalidateQueries({ queryKey: ["applyStatus", id] });
       queryClient.invalidateQueries({ queryKey: ["candidateApplications"] });
     },
-    onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Terjadi kesalahan."), "Gagal Melamar");
+    onError: (err: any) => {
+      toast.error(err.message || "Terjadi kesalahan.", "Gagal Melamar");
     }
   });
 

@@ -1,6 +1,5 @@
 {
   "users": [
-   
     {
       "id": "user-kk0xf37nz",
       "name": "Admin",
@@ -10,9 +9,22 @@
       "jobPostingQuota": 2,
       "createdAt": "2026-07-24T12:13:24.961Z",
       "passwordHash": "Suwung26",
-      "isBanned": false
+      "isBanned": false,
+      "updatedAt": "2026-07-25T13:23:17.264Z"
+    },
+    {
+      "id": "user-n6e7k165e",
+      "name": "Super Admin Kerjasana",
+      "email": "admin@kerjasana.com",
+      "role": "ADMIN",
+      "subscriptionPlan": "ENTERPRISE",
+      "jobPostingQuota": 999,
+      "isVerified": true,
+      "createdAt": "2026-07-25T13:22:09.458Z",
+      "passwordHash": "$2b$10$og3zv6jRFiD1tMn/slyaqukiNx8VDkDdHsn0JYWAXdO.pKNSvUTEW",
+      "isBanned": false,
+      "updatedAt": "2026-07-25T13:22:56.418Z"
     }
-    
   ],
   "jobs": [
     {
