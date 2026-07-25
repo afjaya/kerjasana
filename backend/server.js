@@ -68,6 +68,30 @@ app.post('/api/resend-verification', async (req, res) => {
   }
 });
 
+// Endpoint Resend Link Verifikasi (Mendukung /api/resend-verification DAN /api/auth/resend-verification)
+const handleResendVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email wajib diisi." });
+    }
+
+    await Database.resendVerificationEmail(email);
+
+    return res.status(200).json({
+      message: "Link verifikasi baru telah dikirimkan ke email Anda.",
+    });
+  } catch (error) {
+    console.error("[RESEND ERROR]:", error);
+    return res.status(400).json({ 
+      error: error.message || "Gagal mengirimkan ulang link verifikasi." 
+    });
+  }
+};
+
+app.post('/api/resend-verification', handleResendVerification);
+app.post('/api/auth/resend-verification', handleResendVerification); // 👈 Alias untuk permintaan dari frontend
 // Rute API Utama (termasuk Auth & Jobs)
 app.use('/api', jobRoutes);
 
