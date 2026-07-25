@@ -17,7 +17,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "kerjasana-super-secret-key-123";
 // ==========================================
 
 // Register Pemberi Kerja / User baru
-router.post("/auth/register", (req, res) => {
+router.post("/auth/register", async (req, res) => {
   const { name, email, password, role } = req.body;
 
   if (!name || !email || !password) {
@@ -27,7 +27,7 @@ router.post("/auth/register", (req, res) => {
   try {
     // Role bisa diatur ke ADMIN, CANDIDATE, atau USER
     const userRole = (role === "ADMIN" || role === "CANDIDATE" || role === "USER") ? role : "USER";
-    const user = Database.createUser(name, email, password, userRole);
+    const user = await Database.createUser(name, email, password, userRole);
     
     // Generate JWT Token
     const token = jwt.sign(
@@ -47,14 +47,14 @@ router.post("/auth/register", (req, res) => {
 });
 
 // Login User & Admin
-router.post("/auth/login", (req, res) => {
+router.post("/auth/login", async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: "Email dan password wajib diisi." });
   }
 
-  const user = Database.findUserByEmail(email);
+  const user = await Database.findUserByEmail(email);
   if (!user || user.passwordHash !== password) {
     return res.status(401).json({ error: "Email atau password salah." });
   }
@@ -93,9 +93,9 @@ router.get("/auth/me", requireAuth, (req: AuthenticatedRequest, res) => {
 // ==========================================
 
 // Ambil semua lowongan kerja ACTIVE (tayang di halaman utama) dengan filter opsional
-router.get("/jobs", (req, res) => {
+router.get("/jobs", async (req, res) => {
   const { search, location, category } = req.query;
-  let jobs = Database.getActiveJobs();
+  let jobs = await Database.getActiveJobs();
 
   if (search) {
     const q = (search as string).toLowerCase();
@@ -125,19 +125,19 @@ router.get("/jobs", (req, res) => {
 // ==========================================
 
 // Ambil daftar lowongan kerja milik user yang sedang login
-router.get("/jobs/my", requireAuth, (req: AuthenticatedRequest, res) => {
+router.get("/jobs/my", requireAuth, async (req: AuthenticatedRequest, res) => {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-  const allJobs = Database.getJobs();
+  const allJobs = await Database.getJobs();
   const myJobs = allJobs.filter((j) => j.postedBy === req.user!.id);
   
   return res.json({ jobs: myJobs });
 });
 
 // Ambil detail lowongan kerja tertentu (Mendukung /api/jobs/:id dan /api/jobs/detail/:id)
-const getJobDetailHandler = (req: express.Request, res: express.Response) => {
+const getJobDetailHandler = async (req: express.Request, res: express.Response) => {
   const rawId = req.params.id;
-  const job = Database.findJobById(rawId);
+  const job = await Database.findJobById(rawId);
   if (!job) {
     return res.status(404).json({ error: "Lowongan kerja tidak ditemukan." });
   }
@@ -148,10 +148,10 @@ router.get("/jobs/detail/:id", getJobDetailHandler);
 router.get("/jobs/:id", getJobDetailHandler);
 
 // Membatalkan / Menghapus lowongan kerja milik HRD sendiri
-router.delete("/jobs/my/:id", requireAuth, (req: AuthenticatedRequest, res) => {
+router.delete("/jobs/my/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-  const job = Database.findJobById(req.params.id);
+  const job = await Database.findJobById(req.params.id);
   if (!job) {
     return res.status(404).json({ error: "Lowongan kerja tidak ditemukan." });
   }
@@ -169,7 +169,7 @@ router.delete("/jobs/my/:id", requireAuth, (req: AuthenticatedRequest, res) => {
 });
 
 // Submit lowongan kerja baru (status otomatis menjadi PENDING)
-router.post("/jobs", requireAuth, (req: AuthenticatedRequest, res) => {
+router.post("/jobs", requireAuth, async (req: AuthenticatedRequest, res) => {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
   const { title, company, location, salary, salaryMin, salaryMax, salaryPeriod, description, requirements, contact, category } = req.body;
@@ -181,7 +181,7 @@ router.post("/jobs", requireAuth, (req: AuthenticatedRequest, res) => {
   const parsedMin = salaryMin !== undefined && salaryMin !== null && salaryMin !== "" ? Number(salaryMin) : undefined;
   const parsedMax = salaryMax !== undefined && salaryMax !== null && salaryMax !== "" ? Number(salaryMax) : undefined;
 
-  const newJob = Database.createJob({
+  const newJob = await Database.createJob({
     title,
     company,
     location,
@@ -209,8 +209,8 @@ router.post("/jobs", requireAuth, (req: AuthenticatedRequest, res) => {
 // ==========================================
 
 // Ambil semua lowongan kerja untuk moderasi admin (termasuk yang PENDING, REJECTED, EXPIRED)
-router.get("/admin/jobs", requireAuth, requireAdmin, (req, res) => {
-  const jobs = Database.getJobs();
+router.get("/admin/jobs", requireAuth, requireAdmin, async (req, res) => {
+  const jobs = await Database.getJobs();
   
   // Statistik ringkas untuk dashboard admin
   const stats = {
@@ -225,18 +225,18 @@ router.get("/admin/jobs", requireAuth, requireAdmin, (req, res) => {
 });
 
 // Ambil riwayat notifikasi email otomatis untuk admin
-router.get("/admin/emails", requireAuth, requireAdmin, (req, res) => {
-  const emails = Database.getEmails();
+router.get("/admin/emails", requireAuth, requireAdmin, async (req, res) => {
+  const emails = await Database.getEmails();
   return res.json({ emails });
 });
 
 // Setujui lowongan kerja (APPROVE -> Mengubah status menjadi ACTIVE dan mereset masa berlaku 30 hari)
-router.post("/admin/jobs/:id/approve", requireAuth, requireAdmin, (req, res) => {
+router.post("/admin/jobs/:id/approve", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const updatedJob = Database.updateJobStatus(req.params.id, "ACTIVE");
+    const updatedJob = await Database.updateJobStatus(req.params.id, "ACTIVE");
     
     // Kirim notifikasi email otomatis secara asinkron (background task)
-    const posterUser = Database.findUserById(updatedJob.postedBy);
+    const posterUser = await Database.findUserById(updatedJob.postedBy);
     sendApprovalNotification(updatedJob, posterUser).catch((err) => {
       console.error("[Email Error] Gagal memicu pengiriman email otomatis:", err);
     });
@@ -253,12 +253,12 @@ router.post("/admin/jobs/:id/approve", requireAuth, requireAdmin, (req, res) => 
 // Pemicu simulasi / pengiriman ulang notifikasi email untuk lowongan tertentu
 router.post("/admin/jobs/:id/resend-email", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const job = Database.findJobById(req.params.id);
+    const job = await Database.findJobById(req.params.id);
     if (!job) {
       return res.status(404).json({ error: "Lowongan kerja tidak ditemukan." });
     }
 
-    const posterUser = Database.findUserById(job.postedBy);
+    const posterUser = await Database.findUserById(job.postedBy);
     const emailLog = await sendApprovalNotification(job, posterUser);
 
     return res.json({
@@ -271,9 +271,9 @@ router.post("/admin/jobs/:id/resend-email", requireAuth, requireAdmin, async (re
 });
 
 // Tolak lowongan kerja (REJECT -> Mengubah status menjadi REJECTED)
-router.post("/admin/jobs/:id/reject", requireAuth, requireAdmin, (req, res) => {
+router.post("/admin/jobs/:id/reject", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const updatedJob = Database.updateJobStatus(req.params.id, "REJECTED");
+    const updatedJob = await Database.updateJobStatus(req.params.id, "REJECTED");
     return res.json({
       message: `Lowongan "${updatedJob.title}" berhasil ditolak (REJECTED).`,
       job: updatedJob
@@ -284,9 +284,9 @@ router.post("/admin/jobs/:id/reject", requireAuth, requireAdmin, (req, res) => {
 });
 
 // Hapus lowongan kerja permanen oleh Admin
-router.delete("/admin/jobs/:id", requireAuth, requireAdmin, (req, res) => {
+router.delete("/admin/jobs/:id", requireAuth, requireAdmin, async (req, res) => {
   try {
-    Database.deleteJob(req.params.id);
+    await Database.deleteJob(req.params.id);
     return res.json({ message: "Lowongan kerja berhasil dihapus secara permanen dari sistem." });
   } catch (error: any) {
     return res.status(400).json({ error: error.message || "Gagal menghapus lowongan." });
@@ -298,12 +298,12 @@ router.delete("/admin/jobs/:id", requireAuth, requireAdmin, (req, res) => {
 // ==========================================
 
 // GET /api/employer/applications — Dapatkan seluruh lamaran masuk untuk loker milik HRD yang sedang login
-router.get("/employer/applications", requireAuth, (req: AuthenticatedRequest, res: Response) => {
+router.get("/employer/applications", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
     const isAdmin = req.user.role === "ADMIN";
-    const applications = Database.getEmployerApplications(req.user.id, isAdmin);
+    const applications = await Database.getEmployerApplications(req.user.id, isAdmin);
     
     return res.json({
       applications,
@@ -315,10 +315,10 @@ router.get("/employer/applications", requireAuth, (req: AuthenticatedRequest, re
 });
 
 // GET /api/jobs/:id/applicants — Dapatkan daftar pelamar untuk loker tertentu (Khusus HRD Pembuat Loker atau Admin)
-router.get("/jobs/:id/applicants", requireAuth, (req: AuthenticatedRequest, res: Response) => {
+router.get("/jobs/:id/applicants", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const jobId = req.params.id;
-    const job = Database.findJobById(jobId);
+    const job = await Database.findJobById(jobId);
 
     if (!job) {
       return res.status(404).json({ error: "Lowongan kerja tidak ditemukan." });
@@ -329,7 +329,7 @@ router.get("/jobs/:id/applicants", requireAuth, (req: AuthenticatedRequest, res:
       return res.status(403).json({ error: "Akses ditolak. Anda tidak memiliki wewenang untuk melihat pelamar lowongan ini." });
     }
 
-    const applicants = Database.getJobApplicants(jobId);
+    const applicants = await Database.getJobApplicants(jobId);
     return res.json({
       job,
       applicants,
@@ -341,7 +341,7 @@ router.get("/jobs/:id/applicants", requireAuth, (req: AuthenticatedRequest, res:
 });
 
 // PATCH /api/jobs/applications/:applicationId/status atau /api/employer/applications/:applicationId/status
-const updateApplicantStatusHandler = (req: AuthenticatedRequest, res: Response) => {
+const updateApplicantStatusHandler = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { applicationId } = req.params;
     const { status } = req.body;
@@ -351,7 +351,7 @@ const updateApplicantStatusHandler = (req: AuthenticatedRequest, res: Response) 
       return res.status(400).json({ error: "Status lamaran tidak valid." });
     }
 
-    const updatedApp = Database.updateApplicationStatus(applicationId, status);
+    const updatedApp = await Database.updateApplicationStatus(applicationId, status);
     return res.json({
       message: `Status pelamar berhasil diperbarui menjadi "${status}".`,
       application: updatedApp
@@ -370,8 +370,8 @@ router.patch("/employer/applications/:applicationId/status", requireAuth, update
 // ==========================================
 
 // Memicu cron job auto-expire secara paksa via tombol frontend
-router.post("/simulator/trigger-cron", (req, res) => {
-  const { expiredCount, updatedJobs } = Database.runAutoExpire();
+router.post("/simulator/trigger-cron", async (req, res) => {
+  const { expiredCount, updatedJobs } = await Database.runAutoExpire();
   return res.json({
     message: "Cron Job auto-expire simulasi berhasil dijalankan!",
     expiredCount,
@@ -383,7 +383,7 @@ router.post("/simulator/trigger-cron", (req, res) => {
 });
 
 // Memajukan/memundurkan tanggal pembuatan lowongan agar bisa diuji kedaluwarsa secara instan
-router.post("/simulator/backdate", (req, res) => {
+router.post("/simulator/backdate", async (req, res) => {
   const { jobId, daysAgo } = req.body;
 
   if (!jobId || daysAgo === undefined) {
@@ -391,7 +391,7 @@ router.post("/simulator/backdate", (req, res) => {
   }
 
   try {
-    const updatedJob = Database.forceSetJobAge(jobId, Number(daysAgo));
+    const updatedJob = await Database.forceSetJobAge(jobId, Number(daysAgo));
     return res.json({
       message: `Simulasi: Lowongan "${updatedJob.title}" berhasil di-backdate menjadi ${daysAgo} hari yang lalu.`,
       job: updatedJob
@@ -402,9 +402,9 @@ router.post("/simulator/backdate", (req, res) => {
 });
 
 // Ambil log email yang terkirim (untuk simulator panel / email inspector)
-router.get("/simulator/emails", (req, res) => {
+router.get("/simulator/emails", async (req, res) => {
   try {
-    const emails = Database.getEmails();
+    const emails = await Database.getEmails();
     return res.json({ emails });
   } catch (error: any) {
     return res.status(500).json({ error: "Gagal mengambil log email." });

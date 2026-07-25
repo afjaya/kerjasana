@@ -24,6 +24,20 @@
       "passwordHash": "$2b$10$og3zv6jRFiD1tMn/slyaqukiNx8VDkDdHsn0JYWAXdO.pKNSvUTEW",
       "isBanned": false,
       "updatedAt": "2026-07-25T13:22:56.418Z"
+    },
+    {
+      "id": "user-uc4ytcl2o",
+      "name": "b560",
+      "email": "rijalb560@gmail.com",
+      "role": "APPLICANT",
+      "subscriptionPlan": "FREE",
+      "jobPostingQuota": 0,
+      "isVerified": false,
+      "verificationToken": "vtoken_2314e92a531183d2239f4108015140a10f6024d5d7cc7677",
+      "createdAt": "2026-07-25T14:49:40.058Z",
+      "passwordHash": "$2b$10$lNG3nPB6cf3cdCb8F.xVfe.DnVN02hnIq32i9HMhJst51mgnfE5cu",
+      "isBanned": false,
+      "updatedAt": "2026-07-25T14:51:41.741Z"
     }
   ],
   "jobs": [
@@ -147,6 +161,45 @@
     }
   ],
   "emails": [
+    {
+      "jobId": "SYSTEM_VERIFICATION",
+      "jobTitle": "Verifikasi Akun Pelamar Kerja",
+      "company": "Kerjasana System",
+      "recipientEmail": "rijalb560@gmail.com",
+      "recipientName": "b560",
+      "subject": "[Kerjasana] Verifikasi Alamat Email Akun Pelamar Kerja Anda ✉️",
+      "html": "\n    <div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #f1f5f9; border-radius: 24px; background-color: #ffffff; color: #1e293b; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);\">\n      <div style=\"text-align: center; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid #f1f5f9;\">\n        <h1 style=\"color: #059669; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.03em;\">KERJASANA</h1>\n        <p style=\"margin: 4px 0 0 0; font-size: 11px; color: #10b981; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em;\">Aktivasi Akun Baru Pelamar Kerja</p>\n      </div>\n      \n      <div style=\"margin-bottom: 24px;\">\n        <p style=\"font-size: 16px; font-weight: 700; margin: 0 0 10px 0; color: #0f172a;\">Halo b560,</p>\n        <p style=\"font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 16px 0;\">\n          Selamat datang di platform Kerjasana.com! Anda telah mendaftar sebagai <strong>Pelamar Kerja</strong>. Untuk menjaga keamanan akun dan mengaktifkan akses penuh, silakan verifikasi alamat email Anda.\n        </p>\n      </div>\n\n      <div style=\"background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;\">\n        <p style=\"font-size: 13px; font-weight: 600; color: #166534; margin: 0 0 16px 0;\">Klik tombol hijau di bawah ini untuk memverifikasi akun Anda secara instan:</p>\n        <a href=\"http://localhost:3000/verify-email?token=vtoken_2314e92a531183d2239f4108015140a10f6024d5d7cc7677\" style=\"display: inline-block; background-color: #059669; color: #ffffff; font-weight: 800; font-size: 15px; text-decoration: none; padding: 14px 32px; border-radius: 12px; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);\">\n          Verifikasi Email Saya\n        </a>\n      </div>\n\n      <div style=\"margin-bottom: 24px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; p: 16px; font-size: 12px; color: #64748b; line-height: 1.5;\">\n        <p style=\"margin: 0 0 6px 0; font-weight: 700; color: #334155;\">Atau salin & tempel tautan berikut di browser Anda:</p>\n        <p style=\"margin: 0; word-break: break-all; font-family: monospace; color: #2563eb;\">http://localhost:3000/verify-email?token=vtoken_2314e92a531183d2239f4108015140a10f6024d5d7cc7677</p>\n      </div>\n\n      <div style=\"border-top: 1px solid #f1f5f9; padding-top: 18px; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.6;\">\n        <p style=\"margin: 0;\">Jika Anda tidak merasa mendaftar di Kerjasana.com, silakan abaikan email ini.</p>\n        <p style=\"margin: 4px 0 0 0;\">&copy; 2026 Kerjasana Platform. Hak Cipta Dilindungi.</p>\n      </div>\n    </div>\n  ",
+      "status": "FAILED",
+      "error": "connect ETIMEDOUT 142.251.10.109:587",
+      "id": "email-s8sz6bjqt",
+      "sentAt": "2026-07-25T14:52:02.770Z"
+    },
+    {
+      "jobId": "SYSTEM_VERIFICATION",
+      "jobTitle": "Verifikasi Akun Pelamar Kerja",
+      "company": "Kerjasana System",
+      "recipientEmail": "rijalb560@gmail.com",
+      "recipientName": "b560",
+      "subject": "[Kerjasana] Verifikasi Alamat Email Akun Pelamar Kerja Anda ✉️",
+      "html": "\n    <div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #f1f5f9; border-radius: 24px; background-color: #ffffff; color: #1e293b; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);\">\n      <div style=\"text-align: center; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid #f1f5f9;\">\n        <h1 style=\"color: #059669; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.03em;\">KERJASANA</h1>\n        <p style=\"margin: 4px 0 0 0; font-size: 11px; color: #10b981; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em;\">Aktivasi Akun Baru Pelamar Kerja</p>\n      </div>\n      \n      <div style=\"margin-bottom: 24px;\">\n        <p style=\"font-size: 16px; font-weight: 700; margin: 0 0 10px 0; color: #0f172a;\">Halo b560,</p>\n        <p style=\"font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 16px 0;\">\n          Selamat datang di platform Kerjasana.com! Anda telah mendaftar sebagai <strong>Pelamar Kerja</strong>. Untuk menjaga keamanan akun dan mengaktifkan akses penuh, silakan verifikasi alamat email Anda.\n        </p>\n      </div>\n\n      <div style=\"background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;\">\n        <p style=\"font-size: 13px; font-weight: 600; color: #166534; margin: 0 0 16px 0;\">Klik tombol hijau di bawah ini untuk memverifikasi akun Anda secara instan:</p>\n        <a href=\"http://localhost:3000/verify-email?token=vtoken_af3102c6db47a013ddae90d914951aaf0104381f44055d4b\" style=\"display: inline-block; background-color: #059669; color: #ffffff; font-weight: 800; font-size: 15px; text-decoration: none; padding: 14px 32px; border-radius: 12px; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);\">\n          Verifikasi Email Saya\n        </a>\n      </div>\n\n      <div style=\"margin-bottom: 24px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; p: 16px; font-size: 12px; color: #64748b; line-height: 1.5;\">\n        <p style=\"margin: 0 0 6px 0; font-weight: 700; color: #334155;\">Atau salin & tempel tautan berikut di browser Anda:</p>\n        <p style=\"margin: 0; word-break: break-all; font-family: monospace; color: #2563eb;\">http://localhost:3000/verify-email?token=vtoken_af3102c6db47a013ddae90d914951aaf0104381f44055d4b</p>\n      </div>\n\n      <div style=\"border-top: 1px solid #f1f5f9; padding-top: 18px; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.6;\">\n        <p style=\"margin: 0;\">Jika Anda tidak merasa mendaftar di Kerjasana.com, silakan abaikan email ini.</p>\n        <p style=\"margin: 4px 0 0 0;\">&copy; 2026 Kerjasana Platform. Hak Cipta Dilindungi.</p>\n      </div>\n    </div>\n  ",
+      "status": "FAILED",
+      "error": "connect ETIMEDOUT 142.251.10.109:587",
+      "id": "email-9jdad6qsc",
+      "sentAt": "2026-07-25T14:50:46.130Z"
+    },
+    {
+      "jobId": "SYSTEM_VERIFICATION",
+      "jobTitle": "Verifikasi Akun Pelamar Kerja",
+      "company": "Kerjasana System",
+      "recipientEmail": "rijalb560@gmail.com",
+      "recipientName": "b560",
+      "subject": "[Kerjasana] Verifikasi Alamat Email Akun Pelamar Kerja Anda ✉️",
+      "html": "\n    <div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #f1f5f9; border-radius: 24px; background-color: #ffffff; color: #1e293b; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);\">\n      <div style=\"text-align: center; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid #f1f5f9;\">\n        <h1 style=\"color: #059669; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.03em;\">KERJASANA</h1>\n        <p style=\"margin: 4px 0 0 0; font-size: 11px; color: #10b981; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em;\">Aktivasi Akun Baru Pelamar Kerja</p>\n      </div>\n      \n      <div style=\"margin-bottom: 24px;\">\n        <p style=\"font-size: 16px; font-weight: 700; margin: 0 0 10px 0; color: #0f172a;\">Halo b560,</p>\n        <p style=\"font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 16px 0;\">\n          Selamat datang di platform Kerjasana.com! Anda telah mendaftar sebagai <strong>Pelamar Kerja</strong>. Untuk menjaga keamanan akun dan mengaktifkan akses penuh, silakan verifikasi alamat email Anda.\n        </p>\n      </div>\n\n      <div style=\"background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;\">\n        <p style=\"font-size: 13px; font-weight: 600; color: #166534; margin: 0 0 16px 0;\">Klik tombol hijau di bawah ini untuk memverifikasi akun Anda secara instan:</p>\n        <a href=\"http://localhost:3000/verify-email?token=vtoken_5fb3ac1a6d049a6da929d57165754b423ac5ae2e66b7b4a8\" style=\"display: inline-block; background-color: #059669; color: #ffffff; font-weight: 800; font-size: 15px; text-decoration: none; padding: 14px 32px; border-radius: 12px; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);\">\n          Verifikasi Email Saya\n        </a>\n      </div>\n\n      <div style=\"margin-bottom: 24px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; p: 16px; font-size: 12px; color: #64748b; line-height: 1.5;\">\n        <p style=\"margin: 0 0 6px 0; font-weight: 700; color: #334155;\">Atau salin & tempel tautan berikut di browser Anda:</p>\n        <p style=\"margin: 0; word-break: break-all; font-family: monospace; color: #2563eb;\">http://localhost:3000/verify-email?token=vtoken_5fb3ac1a6d049a6da929d57165754b423ac5ae2e66b7b4a8</p>\n      </div>\n\n      <div style=\"border-top: 1px solid #f1f5f9; padding-top: 18px; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.6;\">\n        <p style=\"margin: 0;\">Jika Anda tidak merasa mendaftar di Kerjasana.com, silakan abaikan email ini.</p>\n        <p style=\"margin: 4px 0 0 0;\">&copy; 2026 Kerjasana Platform. Hak Cipta Dilindungi.</p>\n      </div>\n    </div>\n  ",
+      "status": "FAILED",
+      "error": "connect ETIMEDOUT 142.251.10.109:587",
+      "id": "email-g5miy1w52",
+      "sentAt": "2026-07-25T14:50:01.159Z"
+    },
     {
       "jobId": "job-2",
       "jobTitle": "Store Manager",

@@ -16,14 +16,14 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "kerjasana-super-secret-key-123";
 
 // Helper untuk memastikan default admin account ada di database
-function ensureDefaultAdmin() {
+async function ensureDefaultAdmin() {
   try {
     const adminEmail = "admin@kerjasana.com";
-    const existingAdmin = Database.findUserByEmail(adminEmail);
+    const existingAdmin = await Database.findUserByEmail(adminEmail);
     const adminPasswordHash = bcrypt.hashSync("AdminKerjasana2026!", 10);
 
     if (!existingAdmin) {
-      Database.createUser("Super Admin Kerjasana", adminEmail, adminPasswordHash, "ADMIN" as UserRole, true);
+      await Database.createUser("Super Admin Kerjasana", adminEmail, adminPasswordHash, "ADMIN" as UserRole, true);
       console.log("✅ [AUTH] Default Super Admin account 'admin@kerjasana.com' successfully seeded.");
     }
   } catch (err) {
@@ -32,7 +32,7 @@ function ensureDefaultAdmin() {
 }
 
 // Inisialisasi default admin saat modul di-load
-ensureDefaultAdmin();
+void ensureDefaultAdmin();
 
 // Helper verifikasi password (dukungan Bcrypt $2a$/$2b$ & fallback Plaintext untuk entry manual)
 function verifyPassword(password: string, passwordHash: string): boolean {
@@ -76,7 +76,7 @@ const handleRegister = async (req: express.Request, res: Response) => {
     const verificationToken = "vtoken_" + crypto.randomBytes(24).toString("hex");
 
     // Buat user dengan status isVerified = false (belum diverifikasi)
-    const user = Database.createUser(
+    const user = await Database.createUser(
       name.trim(),
       cleanEmail,
       hashedPassword,
@@ -116,7 +116,7 @@ router.post("/auth/register", handleRegister);
 // ==========================================
 // 2. ENDPOINT VERIFIKASI EMAIL (/verify-email)
 // ==========================================
-const handleVerifyEmail = (req: express.Request, res: Response) => {
+const handleVerifyEmail = async (req: express.Request, res: Response) => {
   const token = (req.query.token as string) || req.body.token;
 
   if (!token) {
@@ -124,7 +124,7 @@ const handleVerifyEmail = (req: express.Request, res: Response) => {
   }
 
   try {
-    const verifiedUser = Database.verifyUserToken(token);
+    const verifiedUser = await Database.verifyUserToken(token);
 
     // Generate JWT Token agar user langsung bisa login
     const jwtToken = jwt.sign(
@@ -167,7 +167,7 @@ const handleResendVerification = async (req: express.Request, res: Response) => 
   }
 
   const cleanEmail = email.trim().toLowerCase();
-  const user = Database.findUserByEmail(cleanEmail);
+  const user = await Database.findUserByEmail(cleanEmail);
 
   if (!user) {
     return res.status(444).json({ error: "Pengguna dengan email ini tidak ditemukan." });
@@ -179,7 +179,7 @@ const handleResendVerification = async (req: express.Request, res: Response) => 
 
   try {
     const newToken = "vtoken_" + crypto.randomBytes(24).toString("hex");
-    const updatedUser = Database.setVerificationToken(user.id, newToken);
+    const updatedUser = await Database.setVerificationToken(user.id, newToken);
 
     await sendVerificationEmail(updatedUser, newToken);
 
@@ -197,7 +197,7 @@ router.post("/auth/resend-verification", handleResendVerification);
 // ==========================================
 // 4. ENDPOINT LOGIN PUBLIK (DENGAN CEK STATUS VERIFIKASI)
 // ==========================================
-const handleLogin = (req: express.Request, res: Response) => {
+const handleLogin = async (req: express.Request, res: Response) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -205,7 +205,7 @@ const handleLogin = (req: express.Request, res: Response) => {
   }
 
   const cleanEmail = email.trim().toLowerCase();
-  const user = Database.findUserByEmail(cleanEmail);
+  const user = await Database.findUserByEmail(cleanEmail);
 
   if (!user || !verifyPassword(password, user.passwordHash)) {
     return res.status(401).json({ error: "Email atau password salah." });
@@ -227,7 +227,7 @@ const handleLogin = (req: express.Request, res: Response) => {
   }
 
   // Update jejak login (updatedAt)
-  Database.updateUserLastLogin(user.id);
+  await Database.updateUserLastLogin(user.id);
 
   // Generate JWT Token
   const token = jwt.sign(
@@ -259,7 +259,7 @@ router.post("/auth/login", handleLogin);
 // ==========================================
 // 5. ENDPOINT LOGIN KHUSUS SUPER ADMIN (/admin/login)
 // ==========================================
-const handleAdminLogin = (req: express.Request, res: Response) => {
+const handleAdminLogin = async (req: express.Request, res: Response) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -267,7 +267,7 @@ const handleAdminLogin = (req: express.Request, res: Response) => {
   }
 
   const cleanEmail = email.trim().toLowerCase();
-  const user = Database.findUserByEmail(cleanEmail);
+  const user = await Database.findUserByEmail(cleanEmail);
 
   if (!user || !verifyPassword(password, user.passwordHash)) {
     return res.status(401).json({ error: "Kredensial Admin tidak valid atau tidak ditemukan." });
@@ -282,7 +282,7 @@ const handleAdminLogin = (req: express.Request, res: Response) => {
   }
 
   // Update jejak login (updatedAt)
-  Database.updateUserLastLogin(user.id);
+  await Database.updateUserLastLogin(user.id);
 
   const token = jwt.sign(
     { id: user.id, email: user.email, role: user.role, name: user.name },
@@ -312,11 +312,11 @@ router.post("/auth/admin/login", handleAdminLogin);
 // ==========================================
 // 6. ENDPOINT CEK USER ME (/me)
 // ==========================================
-const handleMe = (req: AuthenticatedRequest, res: Response) => {
+const handleMe = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ error: "Sesi pengguna tidak valid." });
   }
-  const dbUser = Database.findUserById(req.user.id);
+  const dbUser = await Database.findUserById(req.user.id);
   if (!dbUser) {
     return res.status(404).json({ error: "Pengguna tidak ditemukan." });
   }

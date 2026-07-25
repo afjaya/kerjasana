@@ -18,9 +18,9 @@ export function initCronJobs() {
   const cronSchedule = "0 * * * *"; // Setiap jam sekali
 
   try {
-    const job = cron.schedule(cronSchedule, () => {
+    const job = cron.schedule(cronSchedule, async () => {
       console.log("[CRON] Menjalankan pengecekan otomatis lowongan kedaluwarsa...");
-      const { expiredCount, updatedJobs } = Database.runAutoExpire();
+      const { expiredCount, updatedJobs } = await Database.runAutoExpire();
       
       if (expiredCount > 0) {
         console.log(`[CRON] Sukses! ${expiredCount} lowongan telah kedaluwarsa secara otomatis.`);

@@ -3,20 +3,38 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import fs from "fs";
-import path from "path";
 import { User, Job, EmailNotification, CandidateProfile, Application, ApplicationStatus, UserRole, Transaction, PaymentType, PaymentStatus, JobReport, JobReportReason, JobReportStatus } from "../types";
+import { PrismaClient } from "@prisma/client";
 
-const DB_PATH = path.join(process.cwd(), "db.json");
+// Inisialisasi Prisma Client tunggal untuk seluruh aplikasi
+export const prisma = new PrismaClient();
 
-interface DatabaseSchema {
-  users: (User & { passwordHash: string })[];
-  jobs: Job[];
-  emails?: EmailNotification[];
-  profiles?: CandidateProfile[];
-  applications?: Application[];
-  transactions?: Transaction[];
-  reports?: JobReport[];
+function serializeUser(user: any): User {
+  if (!user) return user;
+
+  const { isEmailVerified, emailVerificationToken, ...rest } = user;
+  return {
+    ...rest,
+    passwordHash: user.passwordHash,
+    avatarUrl: undefined,
+    isVerified: Boolean(isEmailVerified),
+    verificationToken: emailVerificationToken ?? undefined,
+    createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : user.createdAt,
+    updatedAt: user.updatedAt instanceof Date ? user.updatedAt.toISOString() : user.updatedAt
+  } as unknown as User;
+}
+
+function serializeJob(job: any): Job {
+  if (!job) return job;
+
+  return {
+    ...job,
+    postedByName: job.postedByUser?.name ?? job.postedByName ?? "",
+    category: job.category ?? "Lainnya",
+    createdAt: job.createdAt instanceof Date ? job.createdAt.toISOString() : job.createdAt,
+    expiresAt: job.expiresAt instanceof Date ? job.expiresAt.toISOString() : job.expiresAt,
+    featuredUntil: job.featuredUntil instanceof Date ? job.featuredUntil.toISOString() : job.featuredUntil
+  } as unknown as Job;
 }
 
 // Helper untuk tanggal (UTC+7 / Jakarta WIB friendly)
@@ -32,6 +50,7 @@ function getPastDate(days: number): string {
   return date.toISOString();
 }
 
+// Data Bawaan (Default Seed Data)
 const DEFAULT_USERS = [
   {
     id: "user-admin",
@@ -40,7 +59,7 @@ const DEFAULT_USERS = [
     role: "ADMIN" as const,
     subscriptionPlan: "ENTERPRISE",
     jobPostingQuota: 999,
-    passwordHash: "admin123", // Demi kemudahan demo & keamanan, kita simpan string sederhana
+    passwordHash: "admin123",
     createdAt: new Date().toISOString()
   },
   {
@@ -91,8 +110,8 @@ const DEFAULT_JOBS: Job[] = [
     status: "ACTIVE",
     postedBy: "user-hrd1",
     postedByName: "Budi Setiawan (HRD Tokopedia)",
-    createdAt: getPastDate(5), // Dibuat 5 hari lalu
-    expiresAt: getFutureDate(25), // Berakhir dalam 25 hari
+    createdAt: getPastDate(5),
+    expiresAt: getFutureDate(25),
     category: "IT / Teknologi"
   },
   {
@@ -107,7 +126,7 @@ const DEFAULT_JOBS: Job[] = [
     description: "Bertanggung jawab atas operasional harian outlet Kopi Kenangan, memastikan kepuasan pelanggan, mengelola stok bahan baku, serta mengawasi kinerja para barista untuk menjaga standar kualitas kopi terbaik.",
     requirements: "• Pengalaman minimal 2 tahun sebagai Supervisor/Manager di F&B.\n• Memiliki keahlian komunikasi yang prima dan kepemimpinan yang kuat.\n• Bersedia bekerja di akhir pekan dan hari libur nasional.\n• Domisili Bali lebih diutamakan.",
     contact: "bali.recruitment@kopikenangan.com",
-    status: "PENDING", // Menunggu persetujuan admin
+    status: "PENDING",
     postedBy: "user-hrd2",
     postedByName: "Siti Rahma (Owner Kopi Kenangan)",
     createdAt: new Date().toISOString(),
@@ -129,7 +148,7 @@ const DEFAULT_JOBS: Job[] = [
     status: "ACTIVE",
     postedBy: "user-hrd2",
     postedByName: "Siti Rahma (Owner Kopi Kenangan)",
-    createdAt: getPastDate(15), // Dibuat 15 hari lalu
+    createdAt: getPastDate(15),
     expiresAt: getFutureDate(15),
     category: "Sales & Marketing"
   },
@@ -161,8 +180,8 @@ const DEFAULT_JOBS: Job[] = [
     status: "ACTIVE",
     postedBy: "user-hrd2",
     postedByName: "Siti Rahma (Owner Kopi Kenangan)",
-    createdAt: getPastDate(35), // Dibuat 35 hari yang lalu (SUDAH KADALUARSA)
-    expiresAt: getPastDate(5), // Berakhir 5 hari yang lalu
+    createdAt: getPastDate(35),
+    expiresAt: getPastDate(5),
     category: "F&B / Pelayanan"
   },
   {
@@ -205,265 +224,153 @@ const DEFAULT_JOBS: Job[] = [
   }
 ];
 
+// ==========================================
+// AUTH & USER OPERATIONS (PRISMA + SUPABASE)
+// ==========================================
+
 export class Database {
-  private static read(): DatabaseSchema {
-    try {
-      if (!fs.existsSync(DB_PATH)) {
-        const initialData: DatabaseSchema = {
-          users: DEFAULT_USERS,
-          jobs: DEFAULT_JOBS,
-          emails: []
-        };
-        fs.writeFileSync(DB_PATH, JSON.stringify(initialData, null, 2), "utf-8");
-        return initialData;
-      }
-      const raw = fs.readFileSync(DB_PATH, "utf-8");
-      const parsed = JSON.parse(raw) as DatabaseSchema;
-      
-      let migrated = false;
-      if (!parsed.emails) {
-        parsed.emails = [];
-        migrated = true;
-      }
-      
-      // Auto-migrate: Pastikan semua job memiliki kategori & default jobs lengkap
-      if (parsed.jobs && Array.isArray(parsed.jobs)) {
-        // Tambahkan default jobs jika belum ada
-        DEFAULT_JOBS.forEach((defJob) => {
-          if (!parsed.jobs.some((j) => j.id === defJob.id)) {
-            parsed.jobs.push(defJob);
-            migrated = true;
-          }
-        });
+  private static emailLogs: EmailNotification[] = [];
 
-        parsed.jobs = parsed.jobs.map((job) => {
-          if (!job.category) {
-            migrated = true;
-            const titleLower = job.title.toLowerCase();
-            let cat = "Lainnya";
-            if (titleLower.includes("developer") || titleLower.includes("programmer") || titleLower.includes("tech") || titleLower.includes("it") || titleLower.includes("software") || titleLower.includes("stack") || titleLower.includes("web")) {
-              cat = "IT / Teknologi";
-            } else if (titleLower.includes("accounting") || titleLower.includes("keuangan") || titleLower.includes("finance") || titleLower.includes("akuntan") || titleLower.includes("pajak") || titleLower.includes("audit")) {
-              cat = "Keuangan & Akuntansi";
-            } else if (titleLower.includes("pengajar") || titleLower.includes("tutor") || titleLower.includes("guru") || titleLower.includes("dosen") || titleLower.includes("edukasi") || titleLower.includes("pendidikan")) {
-              cat = "Pendidikan & Pelatihan";
-            } else if (titleLower.includes("designer") || titleLower.includes("design") || titleLower.includes("creative") || titleLower.includes("ui") || titleLower.includes("ux") || titleLower.includes("video") || titleLower.includes("seni")) {
-              cat = "Desain & Media";
-            } else if (titleLower.includes("marketing") || titleLower.includes("sales") || titleLower.includes("promo") || titleLower.includes("iklan") || titleLower.includes("penjualan") || titleLower.includes("pemasaran")) {
-              cat = "Sales & Marketing";
-            } else if (titleLower.includes("barista") || titleLower.includes("cook") || titleLower.includes("chef") || titleLower.includes("waiter") || titleLower.includes("pelayan") || titleLower.includes("kasir") || titleLower.includes("kopi") || titleLower.includes("outlet") || titleLower.includes("makanan") || titleLower.includes("minuman")) {
-              cat = "F&B / Pelayanan";
-            } else if (titleLower.includes("admin") || titleLower.includes("staff") || titleLower.includes("administrasi") || titleLower.includes("sekretaris") || titleLower.includes("kantor") || titleLower.includes("tata usaha")) {
-              cat = "Administrasi & Umum";
-            }
-            return { ...job, category: cat };
-          }
-          return job;
-        });
-      }
-      
-      if (!parsed.profiles) parsed.profiles = [];
-      if (!parsed.applications) parsed.applications = [];
-      if (!parsed.transactions) parsed.transactions = [];
-      if (!parsed.reports) {
-        parsed.reports = [];
-        migrated = true;
-      }
-
-      // Auto-migrate Users for subscription, quota, & isBanned
-      if (parsed.users && Array.isArray(parsed.users)) {
-        parsed.users = parsed.users.map((u) => {
-          let uMigrated = false;
-          const subPlan = u.subscriptionPlan || "FREE";
-          const quota = u.jobPostingQuota !== undefined ? u.jobPostingQuota : (u.role === "ADMIN" ? 999 : 2);
-          const isBanned = u.isBanned ?? false;
-          if (u.subscriptionPlan !== subPlan || u.jobPostingQuota !== quota || u.isBanned === undefined) {
-            uMigrated = true;
-            migrated = true;
-          }
-          return {
-            ...u,
-            subscriptionPlan: subPlan,
-            jobPostingQuota: quota,
-            isBanned
-          };
-        });
-      }
-
-      if (migrated) {
-        fs.writeFileSync(DB_PATH, JSON.stringify(parsed, null, 2), "utf-8");
-      }
-      return parsed;
-    } catch (e) {
-      console.error("Gagal membaca database file, menggunakan default in-memory", e);
-      return { users: DEFAULT_USERS, jobs: DEFAULT_JOBS, profiles: [], applications: [], transactions: [] };
-    }
+  private static toIsoDate(value: Date | string | undefined): string | undefined {
+    if (!value) return undefined;
+    return value instanceof Date ? value.toISOString() : String(value);
   }
 
-  private static write(data: DatabaseSchema): void {
-    try {
-      fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), "utf-8");
-    } catch (e) {
-      console.error("Gagal menulis database file", e);
-    }
+  public static async getUsers(): Promise<User[]> {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: "desc" }
+    });
+    return users.map((user) => serializeUser(user));
   }
 
-  // Auth Operations
-  public static getUsers() {
-    return this.read().users;
+  public static async findUserByEmail(email: string): Promise<User | null> {
+    if (!email) return null;
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    });
+    return user ? serializeUser(user) : null;
   }
 
-  public static findUserByEmail(email: string) {
-    return this.read().users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+  public static async findUserById(id: string): Promise<User | null> {
+    if (!id) return null;
+    const user = await prisma.user.findUnique({
+      where: { id }
+    });
+    return user ? serializeUser(user) : null;
   }
 
-  public static findUserById(id: string) {
-    return this.read().users.find((u) => u.id === id);
+  public static async findUserByVerificationToken(token: string): Promise<User | null> {
+    if (!token) return null;
+    const user = await prisma.user.findFirst({
+      where: { emailVerificationToken: token }
+    });
+    return user ? serializeUser(user) : null;
   }
 
-  public static findUserByVerificationToken(token: string) {
-    if (!token) return undefined;
-    return this.read().users.find((u) => u.verificationToken === token);
-  }
+  public static async verifyUserToken(token: string): Promise<User> {
+    const user = await prisma.user.findFirst({
+      where: { emailVerificationToken: token }
+    });
 
-  public static verifyUserToken(token: string): User {
-    const data = this.read();
-    const index = data.users.findIndex((u) => u.verificationToken === token);
-    if (index === -1) {
+    if (!user) {
       throw new Error("Token verifikasi email tidak valid atau telah kedaluwarsa.");
     }
 
-    const user = data.users[index];
-    user.isVerified = true;
-    delete user.verificationToken;
-    user.updatedAt = new Date().toISOString();
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isEmailVerified: true,
+        emailVerificationToken: null,
+        updatedAt: new Date()
+      }
+    });
 
-    this.write(data);
-    
-    // Return sanitized user without passwordHash
-    const { passwordHash, ...sanitized } = user as any;
-    return sanitized as User;
+    return serializeUser(updatedUser);
   }
 
-  public static setVerificationToken(userId: string, token: string): User {
-    const data = this.read();
-    const index = data.users.findIndex((u) => u.id === userId);
-    if (index === -1) {
+  public static async setVerificationToken(userId: string, token: string): Promise<User> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
       throw new Error("Pengguna tidak ditemukan.");
     }
 
-    data.users[index].verificationToken = token;
-    data.users[index].isVerified = false;
-    data.users[index].updatedAt = new Date().toISOString();
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        emailVerificationToken: token,
+        isEmailVerified: false,
+        updatedAt: new Date()
+      }
+    });
 
-    this.write(data);
-
-    const { passwordHash, ...sanitized } = data.users[index] as any;
-    return sanitized as User;
+    return serializeUser(updatedUser);
   }
 
-  public static updateUserLastLogin(userId: string): void {
-    const data = this.read();
-    const index = data.users.findIndex((u) => u.id === userId);
-    if (index !== -1) {
-      (data.users[index] as any).updatedAt = new Date().toISOString();
-      this.write(data);
-    }
+  public static async updateUserLastLogin(userId: string): Promise<void> {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { updatedAt: new Date() }
+    }).catch(() => null);
   }
 
-  public static createUser(
+  public static async createUser(
     name: string,
     email: string,
     passwordHash: string,
     role: UserRole = "USER",
     isVerified: boolean = true,
     verificationToken?: string
-  ): User {
-    const data = this.read();
-    
-    // Validasi email unik
-    const exists = data.users.some((u) => u.email.toLowerCase() === email.toLowerCase());
+  ): Promise<User> {
+    const exists = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    });
+
     if (exists) {
       throw new Error("Email sudah terdaftar");
     }
 
-    const newUser: User = {
-      id: "user-" + Math.random().toString(36).substring(2, 11),
-      name,
-      email,
-      role,
-      subscriptionPlan: role === "ADMIN" ? "ENTERPRISE" : "FREE",
-      jobPostingQuota: role === "ADMIN" ? 999 : (role === "CANDIDATE" || role === "APPLICANT" ? 0 : 2),
-      isVerified,
-      verificationToken,
-      createdAt: new Date().toISOString()
-    };
-
-    data.users.push({ ...newUser, passwordHash });
-    this.write(data);
-    return newUser;
-  }
-
-  // Job Operations
-  public static getJobs(): Job[] {
-    return this.read().jobs;
-  }
-
-  public static getActiveJobs(): Job[] {
-    const jobs = this.read().jobs.filter((j) => j.status === "ACTIVE");
-    // Sort logic: Featured jobs first, then by createdAt descending
-    return jobs.sort((a, b) => {
-      const aFeatured = !!(a.isFeatured && (!a.featuredUntil || new Date(a.featuredUntil) > new Date()));
-      const bFeatured = !!(b.isFeatured && (!b.featuredUntil || new Date(b.featuredUntil) > new Date()));
-
-      if (aFeatured && !bFeatured) return -1;
-      if (!aFeatured && bFeatured) return 1;
-
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    const newUser = await prisma.user.create({
+      data: {
+        id: "user-" + Math.random().toString(36).substring(2, 11),
+        name,
+        email: email.toLowerCase(),
+        passwordHash,
+        role: role as any,
+        subscriptionPlan: role === "ADMIN" ? "ENTERPRISE" : "FREE",
+        jobPostingQuota: role === "ADMIN" ? 999 : (role === "CANDIDATE" || (role as string) === "APPLICANT" ? 0 : 2),
+        isEmailVerified: isVerified,
+        emailVerificationToken: verificationToken
+      }
     });
+
+    return serializeUser(newUser);
   }
 
-  public static upgradeJobToFeatured(jobId: string, durationDays: number = 14): Job {
-    const data = this.read();
-    const index = data.jobs.findIndex((j) => j.id === jobId);
-    if (index === -1) {
-      throw new Error("Lowongan kerja tidak ditemukan.");
-    }
-
-    const featuredUntil = getFutureDate(durationDays);
-    data.jobs[index] = {
-      ...data.jobs[index],
-      isFeatured: true,
-      featuredUntil
-    };
-
-    this.write(data);
-    return data.jobs[index];
-  }
-
-  public static updateUserSubscription(userId: string, plan: "PRO" | "ENTERPRISE"): User {
-    const data = this.read();
-    const index = data.users.findIndex((u) => u.id === userId);
-    if (index === -1) {
+  public static async updateUserSubscription(userId: string, plan: "PRO" | "ENTERPRISE"): Promise<User> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
       throw new Error("Pengguna tidak ditemukan.");
     }
 
     const addedQuota = plan === "PRO" ? 10 : 50;
-    const currentQuota = data.users[index].jobPostingQuota || 0;
+    const currentQuota = user.jobPostingQuota || 0;
 
-    data.users[index] = {
-      ...data.users[index],
-      subscriptionPlan: plan,
-      jobPostingQuota: currentQuota + addedQuota
-    };
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        subscriptionPlan: plan,
+        jobPostingQuota: currentQuota + addedQuota
+      }
+    });
 
-    this.write(data);
-    const { passwordHash, ...userWithoutPassword } = data.users[index];
-    return userWithoutPassword;
+    return serializeUser(updatedUser);
   }
 
-  // Payment & Transaction Operations
-  public static createTransaction(txInput: {
+  // ==========================================
+  // PAYMENT & TRANSACTION OPERATIONS
+  // ==========================================
+
+  public static async createTransaction(txInput: {
     userId: string;
     jobId?: string;
     amount: number;
@@ -471,414 +378,531 @@ export class Database {
     paymentMethod?: string;
     status?: PaymentStatus;
     referenceId: string;
-  }): Transaction {
-    const data = this.read();
-    if (!data.transactions) data.transactions = [];
+  }): Promise<Transaction> {
+    const user = await prisma.user.findUnique({ where: { id: txInput.userId } });
+    const job = txInput.jobId ? await prisma.job.findUnique({ where: { id: txInput.jobId } }) : null;
 
-    const user = data.users.find((u) => u.id === txInput.userId);
-    const job = txInput.jobId ? data.jobs.find((j) => j.id === txInput.jobId) : undefined;
+    const newTx = await prisma.transaction.create({
+      data: {
+        id: "tx-" + Math.random().toString(36).substring(2, 11),
+        userId: txInput.userId,
+        jobId: txInput.jobId,
+        amount: txInput.amount,
+        paymentType: txInput.paymentType as any,
+        paymentMethod: txInput.paymentMethod || "DEMO_BYPASS",
+        status: (txInput.status || "PAID") as any,
+        referenceId: txInput.referenceId
+      }
+    });
 
-    const newTx: Transaction = {
-      id: "tx-" + Math.random().toString(36).substring(2, 11),
-      userId: txInput.userId,
-      jobId: txInput.jobId,
-      amount: txInput.amount,
-      paymentType: txInput.paymentType,
-      paymentMethod: txInput.paymentMethod || "DEMO_BYPASS",
-      status: txInput.status || "PAID",
-      referenceId: txInput.referenceId,
-      createdAt: new Date().toISOString(),
+    return {
+      ...newTx,
       jobTitle: job?.title,
       company: job?.company,
       userName: user?.name,
-      userEmail: user?.email
-    };
-
-    data.transactions.unshift(newTx);
-    this.write(data);
-    return newTx;
+      userEmail: user?.email,
+      createdAt: newTx.createdAt instanceof Date ? newTx.createdAt.toISOString() : newTx.createdAt
+    } as unknown as Transaction;
   }
 
-  public static getTransactions(userId?: string): Transaction[] {
-    const data = this.read();
-    let list = data.transactions || [];
-    if (userId) {
-      list = list.filter((t) => t.userId === userId);
-    }
-    return list.map((tx) => {
-      const user = data.users.find((u) => u.id === tx.userId);
-      const job = tx.jobId ? data.jobs.find((j) => j.id === tx.jobId) : undefined;
+  public static async getTransactions(userId?: string): Promise<Transaction[]> {
+    const whereCondition = userId ? { userId } : {};
+    const transactions = await prisma.transaction.findMany({
+      where: whereCondition,
+      include: {
+        user: true,
+        job: true
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return transactions.map((tx) => {
+      const txData = tx as any;
       return {
-        ...tx,
-        jobTitle: job?.title || tx.jobTitle,
-        company: job?.company || tx.company,
-        userName: user?.name || tx.userName,
-        userEmail: user?.email || tx.userEmail
-      };
+        ...(tx as unknown as Record<string, unknown>),
+        createdAt: Database.toIsoDate(tx.createdAt as Date | string | undefined) ?? "",
+        jobTitle: tx.job?.title ?? txData.jobTitle,
+        company: tx.job?.company ?? txData.company,
+        userName: tx.user?.name ?? txData.userName,
+        userEmail: tx.user?.email ?? txData.userEmail
+      } as unknown as Transaction;
     });
   }
 
-  public static findJobById(id: string | number): Job | undefined {
+  // ==========================================
+  // JOB OPERATIONS
+  // ==========================================
+
+  public static async getJobs(): Promise<Job[]> {
+    const jobs = await prisma.job.findMany({
+      orderBy: { createdAt: "desc" }
+    });
+    return jobs.map((job) => serializeJob(job));
+  }
+
+  public static async getActiveJobs(): Promise<Job[]> {
+    const jobs = await prisma.job.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: [
+        { isFeatured: "desc" },
+        { createdAt: "desc" }
+      ]
+    });
+    return jobs.map((job) => serializeJob(job));
+  }
+
+  public static async findJobById(id: string | number): Promise<Job | undefined> {
     if (id === undefined || id === null) return undefined;
     const strId = String(id).trim();
     if (!strId) return undefined;
 
-    const jobs = this.read().jobs;
-
     // 1. Exact match
-    let found = jobs.find((j) => String(j.id) === strId);
-    if (found) return found;
+    let job = await prisma.job.findUnique({ where: { id: strId } });
+    if (job) return serializeJob(job);
 
     // 2. Prefix 'job-' match
-    found = jobs.find((j) => String(j.id) === `job-${strId}` || `job-${j.id}` === strId);
-    if (found) return found;
-
-    // 3. Integer/Numeric match
-    const numId = parseInt(strId.replace(/\D/g, ""), 10);
-    if (!isNaN(numId)) {
-      found = jobs.find((j) => {
-        const jNum = parseInt(String(j.id).replace(/\D/g, ""), 10);
-        return !isNaN(jNum) && jNum === numId;
-      });
-      if (found) return found;
-    }
+    const altId = strId.startsWith("job-") ? strId.replace("job-", "") : `job-${strId}`;
+    job = await prisma.job.findUnique({ where: { id: altId } });
+    if (job) return serializeJob(job);
 
     return undefined;
   }
 
-  public static createJob(jobData: Omit<Job, "id" | "status" | "createdAt" | "expiresAt">): Job {
-    const data = this.read();
-    
-    const newJob: Job = {
-      ...jobData,
-      id: "job-" + Math.random().toString(36).substring(2, 11),
-      status: "PENDING", // Selalu PENDING saat pertama kali dibuat
-      createdAt: new Date().toISOString(),
-      expiresAt: getFutureDate(30) // Berakhir otomatis 30 hari kemudian
-    };
+  public static async createJob(jobData: Omit<Job, "id" | "status" | "createdAt" | "expiresAt">): Promise<Job> {
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
 
-    data.jobs.unshift(newJob); // Masukkan ke atas
-    this.write(data);
-    return newJob;
+    const newJob = await prisma.job.create({
+      data: {
+        id: "job-" + Math.random().toString(36).substring(2, 11),
+        title: jobData.title,
+        company: jobData.company,
+        location: jobData.location,
+        salary: jobData.salary,
+        salaryMin: jobData.salaryMin,
+        salaryMax: jobData.salaryMax,
+        salaryPeriod: jobData.salaryPeriod,
+        description: jobData.description,
+        requirements: jobData.requirements,
+        contact: jobData.contact,
+        postedBy: jobData.postedBy,
+        status: "PENDING",
+        expiresAt
+      }
+    });
+
+    return serializeJob({
+      ...newJob,
+      postedByName: jobData.postedByName,
+      category: jobData.category || "Lainnya"
+    });
   }
 
-  public static updateJobStatus(jobId: string, status: "ACTIVE" | "REJECTED" | "EXPIRED" | "PENDING"): Job {
-    const data = this.read();
-    const jobIndex = data.jobs.findIndex((j) => j.id === jobId);
-    
-    if (jobIndex === -1) {
+  public static async updateJobStatus(jobId: string, status: "ACTIVE" | "REJECTED" | "EXPIRED" | "PENDING"): Promise<Job> {
+    const job = await prisma.job.findUnique({ where: { id: jobId } });
+    if (!job) {
       throw new Error("Lowongan kerja tidak ditemukan");
     }
 
-    const updatedJob = { ...data.jobs[jobIndex], status };
-    
-    // Jika status diubah menjadi ACTIVE, kita perbarui tanggal expired agar 30 hari sejak disetujui (opsional/fleksibel)
+    const dataToUpdate: any = { status };
     if (status === "ACTIVE") {
-      updatedJob.createdAt = new Date().toISOString();
-      updatedJob.expiresAt = getFutureDate(30);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+      dataToUpdate.createdAt = new Date();
+      dataToUpdate.expiresAt = expiresAt;
     }
 
-    data.jobs[jobIndex] = updatedJob;
-    this.write(data);
-    return updatedJob;
-  }
-
-  // Fungsi khusus untuk simulasi mempercepat tanggal expired
-  public static forceSetJobAge(jobId: string, daysAgo: number): Job {
-    const data = this.read();
-    const jobIndex = data.jobs.findIndex((j) => j.id === jobId);
-    if (jobIndex === -1) throw new Error("Job tidak ditemukan");
-
-    const pastDate = getPastDate(daysAgo);
-    const expiresDate = getFutureDate(30 - daysAgo, new Date(pastDate));
-
-    data.jobs[jobIndex].createdAt = pastDate;
-    data.jobs[jobIndex].expiresAt = expiresDate;
-
-    this.write(data);
-    return data.jobs[jobIndex];
-  }
-
-  // Cron-job logic (Auto-Expire)
-  public static runAutoExpire(): { expiredCount: number; updatedJobs: string[] } {
-    const data = this.read();
-    const now = new Date();
-    let expiredCount = 0;
-    const updatedJobs: string[] = [];
-
-    data.jobs = data.jobs.map((job) => {
-      // Hanya ganti jika statusnya ACTIVE dan masa berlakunya sudah lewat
-      if (job.status === "ACTIVE" && new Date(job.expiresAt) < now) {
-        expiredCount++;
-        updatedJobs.push(job.title);
-        return { ...job, status: "EXPIRED" as const };
-      }
-      return job;
+    const updatedJob = await prisma.job.update({
+      where: { id: jobId },
+      data: dataToUpdate
     });
 
-    if (expiredCount > 0) {
-      this.write(data);
-    }
-
-    return { expiredCount, updatedJobs };
+    return serializeJob(updatedJob);
   }
 
-  // Delete Job (untuk pemeliharaan data demo)
-  public static deleteJob(id: string): void {
-    const data = this.read();
-    data.jobs = data.jobs.filter((j) => j.id !== id);
-    this.write(data);
-  }
-
-  // Email Notifications operations
-  public static getEmails(): EmailNotification[] {
-    const data = this.read();
-    return data.emails || [];
-  }
-
-  public static logEmail(emailData: Omit<EmailNotification, "id" | "sentAt">): EmailNotification {
-    const data = this.read();
-    if (!data.emails) {
-      data.emails = [];
-    }
-
-    const newEmail: EmailNotification = {
-      ...emailData,
-      id: "email-" + Math.random().toString(36).substring(2, 11),
-      sentAt: new Date().toISOString()
-    };
-
-    data.emails.unshift(newEmail); // Taruh di baris paling atas (terbaru dahulu)
-    this.write(data);
-    return newEmail;
-  }
-
-  // Candidate Profile Operations
-  public static getCandidateProfile(userId: string): CandidateProfile | null {
-    const data = this.read();
-    return (data.profiles || []).find((p) => p.userId === userId) || null;
-  }
-
-  public static upsertCandidateProfile(userId: string, profileData: Partial<CandidateProfile>): CandidateProfile {
-    const data = this.read();
-    if (!data.profiles) data.profiles = [];
-
-    const existingIndex = data.profiles.findIndex((p) => p.userId === userId);
-    const now = new Date().toISOString();
-
-    // Sync avatarUrl to user record if provided
-    if (profileData.avatarUrl !== undefined) {
-      const uIdx = data.users.findIndex((u) => u.id === userId);
-      if (uIdx !== -1) {
-        data.users[uIdx].avatarUrl = profileData.avatarUrl;
-        data.users[uIdx].updatedAt = now;
-      }
-    }
-
-    let resultProfile: CandidateProfile;
-
-    if (existingIndex >= 0) {
-      const updated: CandidateProfile = {
-        ...data.profiles[existingIndex],
-        ...profileData,
-        updatedAt: now
-      };
-      data.profiles[existingIndex] = updated;
-      resultProfile = updated;
-    } else {
-      const newProfile: CandidateProfile = {
-        id: "prof-" + Math.random().toString(36).substring(2, 11),
-        userId,
-        avatarUrl: profileData.avatarUrl || "",
-        phone: profileData.phone || "",
-        bio: profileData.bio || "",
-        currentJobTitle: profileData.currentJobTitle || "",
-        skills: profileData.skills || "",
-        resumeUrl: profileData.resumeUrl || "",
-        portfolioUrl: profileData.portfolioUrl || "",
-        dailyEmailAlerts: profileData.dailyEmailAlerts ?? false,
-        alertCategory: profileData.alertCategory || "",
-        alertLocation: profileData.alertLocation || "",
-        alertKeywords: profileData.alertKeywords || "",
-        updatedAt: now
-      };
-      data.profiles.push(newProfile);
-      resultProfile = newProfile;
-    }
-
-    this.write(data);
-    return resultProfile;
-  }
-
-  // Application Operations
-  public static findApplication(jobId: string, candidateId: string): Application | undefined {
-    const data = this.read();
-    return (data.applications || []).find((a) => a.jobId === jobId && a.candidateId === candidateId);
-  }
-
-  public static createApplication(dataInput: { jobId: string; candidateId: string; coverLetter?: string }): Application {
-    const data = this.read();
-    if (!data.applications) data.applications = [];
-
-    // Check unique constraint @@unique([jobId, candidateId])
-    const existing = data.applications.find((a) => a.jobId === dataInput.jobId && a.candidateId === dataInput.candidateId);
-    if (existing) {
-      throw new Error("Anda sudah melamar pekerjaan ini sebelumnya.");
-    }
-
-    const job = data.jobs.find((j) => j.id === dataInput.jobId);
+  public static async upgradeJobToFeatured(jobId: string, durationDays: number = 14): Promise<Job> {
+    const job = await prisma.job.findUnique({ where: { id: jobId } });
     if (!job) {
       throw new Error("Lowongan kerja tidak ditemukan.");
     }
 
-    const candidate = data.users.find((u) => u.id === dataInput.candidateId);
-    const profile = (data.profiles || []).find((p) => p.userId === dataInput.candidateId);
+    const featuredUntil = new Date();
+    featuredUntil.setDate(featuredUntil.getDate() + durationDays);
 
-    const newApp: Application = {
-      id: "app-" + Math.random().toString(36).substring(2, 11),
-      jobId: dataInput.jobId,
-      candidateId: dataInput.candidateId,
-      coverLetter: dataInput.coverLetter || "",
-      status: "APPLIED",
-      appliedAt: new Date().toISOString(),
+    const updatedJob = await prisma.job.update({
+      where: { id: jobId },
+      data: {
+        isFeatured: true,
+        featuredUntil
+      }
+    });
+
+    return serializeJob(updatedJob);
+  }
+
+ // ==========================================
+  // UTILITY & DEMO CRON-JOB OPERATIONS
+  // ==========================================
+
+  // Fungsi khusus untuk simulasi mempercepat tanggal expired
+  public static async forceSetJobAge(jobId: string, daysAgo: number): Promise<Job> {
+    const job = await prisma.job.findUnique({ where: { id: jobId } });
+    if (!job) throw new Error("Job tidak ditemukan");
+
+    const pastDate = new Date();
+    pastDate.setDate(pastDate.getDate() - daysAgo);
+
+    const expiresDate = new Date(pastDate);
+    expiresDate.setDate(expiresDate.getDate() + 30);
+
+    const updatedJob = await prisma.job.update({
+      where: { id: jobId },
+      data: {
+        createdAt: pastDate,
+        expiresAt: expiresDate
+      }
+    });
+
+    return serializeJob(updatedJob);
+  }
+
+  // Cron-job logic (Auto-Expire)
+  public static async runAutoExpire(): Promise<{ expiredCount: number; updatedJobs: string[] }> {
+    const now = new Date();
+
+    // Cari semua job ACTIVE yang sudah melewati expiresAt
+    const jobsToExpire = await prisma.job.findMany({
+      where: {
+        status: "ACTIVE",
+        expiresAt: { lt: now }
+      },
+      select: { id: true, title: true }
+    });
+
+    if (jobsToExpire.length === 0) {
+      return { expiredCount: 0, updatedJobs: [] };
+    }
+
+    const jobIds = jobsToExpire.map((j) => j.id);
+    const updatedJobs = jobsToExpire.map((j) => j.title);
+
+    // Update massal status menjadi EXPIRED
+    await prisma.job.updateMany({
+      where: { id: { in: jobIds } },
+      data: { status: "EXPIRED" }
+    });
+
+    return { expiredCount: jobsToExpire.length, updatedJobs };
+  }
+
+  // Delete Job (untuk pemeliharaan data demo)
+  public static async deleteJob(id: string): Promise<void> {
+    await prisma.job.delete({ where: { id } }).catch(() => null);
+  }
+
+  // ==========================================
+  // EMAIL NOTIFICATIONS OPERATIONS
+  // ==========================================
+
+  public static async getEmails(): Promise<EmailNotification[]> {
+    return Database.emailLogs
+      .slice()
+      .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
+  }
+
+  public static async logEmail(emailData: Omit<EmailNotification, "id" | "sentAt">): Promise<EmailNotification> {
+    const newEmail: EmailNotification = {
+      id: "email-" + Math.random().toString(36).substring(2, 11),
+      sentAt: new Date().toISOString(),
+      recipient: emailData.recipient ?? emailData.recipientEmail ?? emailData.recipientName ?? emailData.to ?? "",
+      recipientEmail: emailData.recipientEmail ?? emailData.to,
+      recipientName: emailData.recipientName,
+      subject: emailData.subject,
+      html: emailData.html ?? emailData.htmlBody ?? emailData.body,
+      htmlBody: emailData.htmlBody ?? emailData.html ?? emailData.body,
+      body: emailData.body,
+      to: emailData.to,
+      template: emailData.template,
+      status: "SENT"
+    };
+
+    Database.emailLogs.unshift(newEmail);
+    return newEmail;
+  }
+
+  // ==========================================
+  // CANDIDATE PROFILE OPERATIONS
+  // ==========================================
+
+  public static async getCandidateProfile(userId: string): Promise<CandidateProfile | null> {
+    const profile = await prisma.profile.findUnique({
+      where: { userId }
+    });
+
+    if (!profile) return null;
+
+    return {
+      id: profile.id,
+      userId: profile.userId,
+      phone: profile.phone ?? undefined,
+      bio: profile.bio ?? undefined,
+      currentJobTitle: profile.currentJobTitle ?? undefined,
+      skills: profile.skills ?? undefined,
+      resumeUrl: profile.resumeUrl ?? undefined,
+      portfolioUrl: profile.portfolioUrl ?? undefined,
+      updatedAt: Database.toIsoDate(profile.updatedAt) ?? ""
+    } as CandidateProfile;
+  }
+
+  public static async upsertCandidateProfile(userId: string, profileData: Partial<CandidateProfile>): Promise<CandidateProfile> {
+    const updatedProfile = await prisma.profile.upsert({
+      where: { userId },
+      update: {
+        phone: profileData.phone ?? null,
+        bio: profileData.bio ?? null,
+        currentJobTitle: profileData.currentJobTitle ?? null,
+        skills: profileData.skills ?? null,
+        resumeUrl: profileData.resumeUrl ?? null,
+        portfolioUrl: profileData.portfolioUrl ?? null,
+        updatedAt: new Date()
+      },
+      create: {
+        id: "prof-" + Math.random().toString(36).substring(2, 11),
+        userId,
+        phone: profileData.phone ?? null,
+        bio: profileData.bio ?? null,
+        currentJobTitle: profileData.currentJobTitle ?? null,
+        skills: profileData.skills ?? null,
+        resumeUrl: profileData.resumeUrl ?? null,
+        portfolioUrl: profileData.portfolioUrl ?? null
+      }
+    });
+
+    return {
+      id: updatedProfile.id,
+      userId: updatedProfile.userId,
+      phone: updatedProfile.phone ?? undefined,
+      bio: updatedProfile.bio ?? undefined,
+      currentJobTitle: updatedProfile.currentJobTitle ?? undefined,
+      skills: updatedProfile.skills ?? undefined,
+      resumeUrl: updatedProfile.resumeUrl ?? undefined,
+      portfolioUrl: updatedProfile.portfolioUrl ?? undefined,
+      updatedAt: Database.toIsoDate(updatedProfile.updatedAt) ?? ""
+    } as CandidateProfile;
+  }
+
+  // ==========================================
+  // APPLICATION OPERATIONS
+  // ==========================================
+
+  public static async findApplication(jobId: string, candidateId: string): Promise<Application | undefined> {
+    const app = await prisma.application.findFirst({
+      where: { jobId, candidateId }
+    });
+    return (app as unknown as Application) || undefined;
+  }
+
+  public static async createApplication(dataInput: { jobId: string; candidateId: string; coverLetter?: string }): Promise<Application> {
+    const existing = await prisma.application.findFirst({
+      where: {
+        jobId: dataInput.jobId,
+        candidateId: dataInput.candidateId
+      }
+    });
+
+    if (existing) {
+      throw new Error("Anda sudah melamar pekerjaan ini sebelumnya.");
+    }
+
+    const job = await prisma.job.findUnique({ where: { id: dataInput.jobId } });
+    if (!job) {
+      throw new Error("Lowongan kerja tidak ditemukan.");
+    }
+
+    const candidate = await prisma.user.findUnique({ where: { id: dataInput.candidateId } });
+    const profile = await prisma.profile.findUnique({ where: { userId: dataInput.candidateId } });
+
+    const newApp = await prisma.application.create({
+      data: {
+        id: "app-" + Math.random().toString(36).substring(2, 11),
+        jobId: dataInput.jobId,
+        candidateId: dataInput.candidateId,
+        coverLetter: dataInput.coverLetter || "",
+        status: "APPLIED"
+      }
+    });
+
+    return {
+      id: newApp.id,
+      jobId: newApp.jobId,
+      candidateId: newApp.candidateId,
+      coverLetter: newApp.coverLetter ?? undefined,
+      status: newApp.status as ApplicationStatus,
+      appliedAt: newApp.appliedAt instanceof Date ? newApp.appliedAt.toISOString() : newApp.appliedAt,
       jobTitle: job.title,
       company: job.company,
       location: job.location,
       salary: job.salary,
       candidateName: candidate?.name || "Kandidat",
       candidateEmail: candidate?.email || "",
-      candidateProfile: profile || undefined
-    };
-
-    data.applications.unshift(newApp);
-    this.write(data);
-    return newApp;
+      candidateProfile: (profile as unknown as CandidateProfile) || undefined
+    } as Application;
   }
 
-  public static getCandidateApplications(candidateId: string): Application[] {
-    const data = this.read();
-    const apps = (data.applications || []).filter((a) => a.candidateId === candidateId);
-    return apps.map((app) => {
-      const job = data.jobs.find((j) => j.id === app.jobId);
-      return {
-        ...app,
-        jobTitle: job?.title || app.jobTitle,
-        company: job?.company || app.company,
-        location: job?.location || app.location,
-        salary: job?.salary || app.salary
-      };
+  public static async getCandidateApplications(candidateId: string): Promise<Application[]> {
+    const apps = await prisma.application.findMany({
+      where: { candidateId },
+      include: { job: true },
+      orderBy: { appliedAt: "desc" }
     });
+
+    return apps.map((app) => ({
+      ...app,
+      status: app.status as ApplicationStatus,
+      appliedAt: app.appliedAt instanceof Date ? app.appliedAt.toISOString() : app.appliedAt,
+      jobTitle: app.job?.title,
+      company: app.job?.company,
+      location: app.job?.location,
+      salary: app.job?.salary
+    })) as unknown as Application[];
   }
 
-  public static getJobApplicants(jobId: string): Application[] {
-    const data = this.read();
-    const apps = (data.applications || []).filter((a) => a.jobId === jobId);
-    return apps.map((app) => {
-      const candidate = data.users.find((u) => u.id === app.candidateId);
-      const profile = (data.profiles || []).find((p) => p.userId === app.candidateId);
-      const job = data.jobs.find((j) => j.id === app.jobId);
-      return {
-        ...app,
-        jobTitle: job?.title || app.jobTitle,
-        company: job?.company || app.company,
-        location: job?.location || app.location,
-        salary: job?.salary || app.salary,
-        candidateName: candidate?.name || app.candidateName,
-        candidateEmail: candidate?.email || app.candidateEmail,
-        candidateProfile: profile || app.candidateProfile
-      };
-    }).sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime());
+  public static async getJobApplicants(jobId: string): Promise<Application[]> {
+    const apps = await prisma.application.findMany({
+      where: { jobId },
+      include: {
+        candidate: {
+          include: { profile: true }
+        },
+        job: true
+      },
+      orderBy: { appliedAt: "desc" }
+    });
+
+    return apps.map((app) => ({
+      ...app,
+      status: app.status as ApplicationStatus,
+      appliedAt: app.appliedAt instanceof Date ? app.appliedAt.toISOString() : app.appliedAt,
+      jobTitle: app.job?.title,
+      company: app.job?.company,
+      location: app.job?.location,
+      salary: app.job?.salary,
+      candidateName: app.candidate?.name,
+      candidateEmail: app.candidate?.email,
+      candidateProfile: app.candidate?.profile ? ({
+        id: app.candidate.profile.id,
+        userId: app.candidate.profile.userId,
+        phone: app.candidate.profile.phone ?? undefined,
+        bio: app.candidate.profile.bio ?? undefined,
+        currentJobTitle: app.candidate.profile.currentJobTitle ?? undefined,
+        skills: app.candidate.profile.skills ?? undefined,
+        resumeUrl: app.candidate.profile.resumeUrl ?? undefined,
+        portfolioUrl: app.candidate.profile.portfolioUrl ?? undefined,
+        updatedAt: Database.toIsoDate(app.candidate.profile.updatedAt) ?? ""
+      } as CandidateProfile) : undefined
+    })) as unknown as Application[];
   }
 
-  public static getEmployerApplications(employerId: string, isAdmin?: boolean): Application[] {
-    const data = this.read();
-    let apps = data.applications || [];
+  public static async getEmployerApplications(employerId: string, isAdmin?: boolean): Promise<Application[]> {
+    let whereCondition = {};
 
     if (!isAdmin) {
-      const myJobIds = new Set(data.jobs.filter((j) => j.postedBy === employerId).map((j) => j.id));
-      apps = apps.filter((a) => myJobIds.has(a.jobId));
-    }
-
-    return apps.map((app) => {
-      const candidate = data.users.find((u) => u.id === app.candidateId);
-      const profile = (data.profiles || []).find((p) => p.userId === app.candidateId);
-      const job = data.jobs.find((j) => j.id === app.jobId);
-      return {
-        ...app,
-        jobTitle: job?.title || app.jobTitle,
-        company: job?.company || app.company,
-        location: job?.location || app.location,
-        salary: job?.salary || app.salary,
-        candidateName: candidate?.name || app.candidateName,
-        candidateEmail: candidate?.email || app.candidateEmail,
-        candidateProfile: profile || app.candidateProfile
+      whereCondition = {
+        job: { postedBy: employerId }
       };
-    }).sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime());
-  }
-
-  public static updateApplicationStatus(applicationId: string, status: ApplicationStatus): Application {
-    const data = this.read();
-    if (!data.applications) data.applications = [];
-
-    const index = data.applications.findIndex((a) => a.id === applicationId);
-    if (index === -1) {
-      throw new Error("Lamaran tidak ditemukan.");
     }
 
-    data.applications[index].status = status;
-    this.write(data);
-    return data.applications[index];
+    const apps = await prisma.application.findMany({
+      where: whereCondition,
+      include: {
+        candidate: {
+          include: { profile: true }
+        },
+        job: true
+      },
+      orderBy: { appliedAt: "desc" }
+    });
+
+    return apps.map((app) => ({
+      ...app,
+      status: app.status as ApplicationStatus,
+      appliedAt: app.appliedAt instanceof Date ? app.appliedAt.toISOString() : app.appliedAt,
+      jobTitle: app.job?.title,
+      company: app.job?.company,
+      location: app.job?.location,
+      salary: app.job?.salary,
+      candidateName: app.candidate?.name,
+      candidateEmail: app.candidate?.email,
+      candidateProfile: app.candidate?.profile ? ({
+        id: app.candidate.profile.id,
+        userId: app.candidate.profile.userId,
+        phone: app.candidate.profile.phone ?? undefined,
+        bio: app.candidate.profile.bio ?? undefined,
+        currentJobTitle: app.candidate.profile.currentJobTitle ?? undefined,
+        skills: app.candidate.profile.skills ?? undefined,
+        resumeUrl: app.candidate.profile.resumeUrl ?? undefined,
+        portfolioUrl: app.candidate.profile.portfolioUrl ?? undefined,
+        updatedAt: Database.toIsoDate(app.candidate.profile.updatedAt) ?? ""
+      } as CandidateProfile) : undefined
+    })) as unknown as Application[];
+  }
+
+  public static async updateApplicationStatus(applicationId: string, status: ApplicationStatus): Promise<Application> {
+    const updatedApp = await prisma.application.update({
+      where: { id: applicationId },
+      data: { status: status as any }
+    });
+
+    return updatedApp as unknown as Application;
   }
 
   // ==========================================
-  // LAPORKAN LOWONGAN (JOB REPORT SYSTEM) & MODERASI
+  // JOB REPORT SYSTEM & MODERATION
   // ==========================================
 
-  public static createJobReport(params: {
+  public static async createJobReport(params: {
     jobId: string;
     reporterId: string;
     reasonCategory: JobReportReason;
     description: string;
-  }): JobReport {
-    const data = this.read();
-    if (!data.reports) data.reports = [];
+  }): Promise<JobReport> {
+    const existing = await prisma.jobReport.findFirst({
+      where: {
+        jobId: params.jobId,
+        reporterId: params.reporterId
+      }
+    });
 
-    // Validasi 1 user hanya bisa melaporkan loker yang sama 1 kali
-    const existing = data.reports.find(
-      (r) => r.jobId === params.jobId && r.reporterId === params.reporterId
-    );
     if (existing) {
       throw new Error("Anda sudah pernah melaporkan lowongan pekerjaan ini sebelumnya.");
     }
 
-    const job = data.jobs.find((j) => j.id === params.jobId);
+    const job = await prisma.job.findUnique({ where: { id: params.jobId } });
     if (!job) {
       throw new Error("Lowongan pekerjaan yang dilaporkan tidak ditemukan.");
     }
 
-    const reporter = data.users.find((u) => u.id === params.reporterId);
+    const reporter = await prisma.user.findUnique({ where: { id: params.reporterId } });
 
-    const report: JobReport = {
-      id: `report-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      jobId: params.jobId,
-      reporterId: params.reporterId,
-      reasonCategory: params.reasonCategory,
-      description: params.description,
-      status: "PENDING",
-      createdAt: new Date().toISOString()
-    };
+    const report = await prisma.jobReport.create({
+      data: {
+        id: `report-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        jobId: params.jobId,
+        reporterId: params.reporterId,
+        reasonCategory: params.reasonCategory as any,
+        description: params.description,
+        status: "PENDING"
+      }
+    });
 
-    data.reports.push(report);
-    this.write(data);
+    const employer = await prisma.user.findUnique({ where: { id: job.postedBy } });
 
-    // Return populated report for UI display
-    const employer = data.users.find((u) => u.id === job.postedBy);
     return {
-      ...report,
+      ...(report as unknown as JobReport),
       jobTitle: job.title,
       company: job.company,
       employerId: job.postedBy,
-      employerName: employer?.name || job.postedByName,
+      employerName: employer?.name || "",
       employerEmail: employer?.email || "",
       employerIsBanned: employer?.isBanned || false,
       reporterName: reporter?.name || "",
@@ -886,52 +910,46 @@ export class Database {
     };
   }
 
-  public static getAllJobReports(): JobReport[] {
-    const data = this.read();
-    const reports = data.reports || [];
+  public static async getAllJobReports(): Promise<JobReport[]> {
+    const reports = await prisma.jobReport.findMany({
+      include: {
+        job: {
+          include: { postedByUser: true }
+        },
+        reporter: true
+      },
+      orderBy: { createdAt: "desc" }
+    });
 
-    return reports.map((rep) => {
-      const job = data.jobs.find((j) => j.id === rep.jobId);
-      const reporter = data.users.find((u) => u.id === rep.reporterId);
-      const employer = job ? data.users.find((u) => u.id === job.postedBy) : undefined;
-
-      return {
-        ...rep,
-        jobTitle: job?.title || "Lowongan Dihapus",
-        company: job?.company || "Perusahaan",
-        employerId: job?.postedBy || "",
-        employerName: employer?.name || job?.postedByName || "",
-        employerEmail: employer?.email || "",
-        employerIsBanned: employer?.isBanned || false,
-        reporterName: reporter?.name || "Pelapor",
-        reporterEmail: reporter?.email || ""
-      };
-    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return reports.map((rep) => ({
+      ...rep,
+      jobTitle: rep.job?.title || "Lowongan Dihapus",
+      company: rep.job?.company || "Perusahaan",
+      employerId: rep.job?.postedBy || "",
+      employerName: rep.job?.postedByUser?.name || "",
+      employerEmail: rep.job?.postedByUser?.email || "",
+      employerIsBanned: rep.job?.postedByUser?.isBanned || false,
+      reporterName: rep.reporter?.name || "Pelapor",
+      reporterEmail: rep.reporter?.email || ""
+    })) as unknown as JobReport[];
   }
 
-  public static updateJobReportStatus(reportId: string, status: JobReportStatus): JobReport {
-    const data = this.read();
-    if (!data.reports) data.reports = [];
+  public static async updateJobReportStatus(reportId: string, status: JobReportStatus): Promise<JobReport> {
+    const updatedRep = await prisma.jobReport.update({
+      where: { id: reportId },
+      data: { status: status as any }
+    });
 
-    const index = data.reports.findIndex((r) => r.id === reportId);
-    if (index === -1) {
-      throw new Error("Laporan tidak ditemukan.");
-    }
-
-    data.reports[index].status = status;
-    this.write(data);
-
-    const updatedRep = data.reports[index];
-    const job = data.jobs.find((j) => j.id === updatedRep.jobId);
-    const reporter = data.users.find((u) => u.id === updatedRep.reporterId);
-    const employer = job ? data.users.find((u) => u.id === job.postedBy) : undefined;
+    const job = await prisma.job.findUnique({ where: { id: updatedRep.jobId } });
+    const reporter = await prisma.user.findUnique({ where: { id: updatedRep.reporterId } });
+    const employer = job ? await prisma.user.findUnique({ where: { id: job.postedBy } }) : null;
 
     return {
-      ...updatedRep,
+      ...(updatedRep as unknown as JobReport),
       jobTitle: job?.title || "Lowongan Dihapus",
       company: job?.company || "Perusahaan",
       employerId: job?.postedBy || "",
-      employerName: employer?.name || job?.postedByName || "",
+      employerName: employer?.name || "",
       employerEmail: employer?.email || "",
       employerIsBanned: employer?.isBanned || false,
       reporterName: reporter?.name || "Pelapor",
@@ -939,70 +957,59 @@ export class Database {
     };
   }
 
-  public static takeDownJob(jobId: string): Job {
-    const data = this.read();
-    const index = data.jobs.findIndex((j) => j.id === jobId);
-    if (index === -1) {
-      throw new Error("Lowongan kerja tidak ditemukan.");
-    }
-
-    // Ubah status job menjadi REJECTED / TAKEN DOWN
-    data.jobs[index].status = "REJECTED";
-
-    // Otomatis tandai laporan terkait sebagai RESOLVED_ACTIONED
-    if (data.reports) {
-      data.reports = data.reports.map((r) => {
-        if (r.jobId === jobId && (r.status === "PENDING" || r.status === "INVESTIGATING")) {
-          return { ...r, status: "RESOLVED_ACTIONED" };
-        }
-        return r;
-      });
-    }
-
-    this.write(data);
-    return data.jobs[index];
-  }
-
-  public static banUserAndTakeDownJobs(userId: string): { user: User; takenDownJobsCount: number } {
-    const data = this.read();
-    const userIndex = data.users.findIndex((u) => u.id === userId);
-    if (userIndex === -1) {
-      throw new Error("User tidak ditemukan.");
-    }
-
-    // Set isBanned = true
-    data.users[userIndex].isBanned = true;
-
-    // Nonaktifkan seluruh loker milik HRD tersebut
-    let takenDownJobsCount = 0;
-    const bannedJobIds = new Set<string>();
-
-    data.jobs = data.jobs.map((j) => {
-      if (j.postedBy === userId) {
-        if (j.status !== "REJECTED") {
-          takenDownJobsCount++;
-        }
-        bannedJobIds.add(j.id);
-        return { ...j, status: "REJECTED" as const };
-      }
-      return j;
+  public static async takeDownJob(jobId: string): Promise<Job> {
+    const updatedJob = await prisma.job.update({
+      where: { id: jobId },
+      data: { status: "REJECTED" }
     });
 
-    // Otomatis ubah status seluruh laporan terkait loker HRD ini menjadi RESOLVED_ACTIONED
-    if (data.reports) {
-      data.reports = data.reports.map((r) => {
-        if (bannedJobIds.has(r.jobId) && (r.status === "PENDING" || r.status === "INVESTIGATING")) {
-          return { ...r, status: "RESOLVED_ACTIONED" };
-        }
-        return r;
+    // Otomatis tandai laporan terkait sebagai RESOLVED_ACTIONED
+    await prisma.jobReport.updateMany({
+      where: {
+        jobId,
+        status: { in: ["PENDING", "INVESTIGATING"] }
+      },
+      data: { status: "RESOLVED_ACTIONED" }
+    });
+
+    return updatedJob as unknown as Job;
+  }
+
+  public static async banUserAndTakeDownJobs(userId: string): Promise<{ user: User; takenDownJobsCount: number }> {
+    // 1. Set isBanned = true
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { isBanned: true }
+    });
+
+    // 2. Hitung & Nonaktifkan seluruh loker milik HRD tersebut
+    const userJobs = await prisma.job.findMany({
+      where: { postedBy: userId, status: { not: "REJECTED" } },
+      select: { id: true }
+    });
+
+    const takenDownJobsCount = userJobs.length;
+    const jobIds = userJobs.map((j) => j.id);
+
+    if (jobIds.length > 0) {
+      await prisma.job.updateMany({
+        where: { postedBy: userId },
+        data: { status: "REJECTED" }
+      });
+
+      // 3. Otomatis ubah status seluruh laporan terkait loker HRD ini menjadi RESOLVED_ACTIONED
+      await prisma.jobReport.updateMany({
+        where: {
+          jobId: { in: jobIds },
+          status: { in: ["PENDING", "INVESTIGATING"] }
+        },
+        data: { status: "RESOLVED_ACTIONED" }
       });
     }
 
-    this.write(data);
-
-    const { passwordHash, ...userClean } = data.users[userIndex];
+    const { passwordHash, ...userClean } = updatedUser;
     return {
-      user: userClean,
+      user: userClean as unknown as User,
       takenDownJobsCount
     };
   }

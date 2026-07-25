@@ -20,7 +20,7 @@ export interface AuthenticatedRequest extends Request {
 }
 
 // Middleware untuk memverifikasi apakah user sudah login (JWT Valid)
-export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -46,7 +46,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     };
 
     // Validasi apakah user masih ada di database
-    const user = Database.findUserById(decoded.id);
+    const user = await Database.findUserById(decoded.id);
     if (!user) {
       return res.status(401).json({ error: "User tidak ditemukan dalam sistem." });
     }

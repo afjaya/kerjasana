@@ -25,7 +25,7 @@ export class PaymentService {
     // Cek environment variable PAYMENT_BYPASS (default true untuk demo)
     const isBypass = process.env.PAYMENT_BYPASS !== "false";
 
-    const user = Database.findUserById(userId);
+    const user = await Database.findUserById(userId);
     if (!user) {
       throw new Error("Pengguna tidak ditemukan.");
     }
@@ -43,15 +43,15 @@ export class PaymentService {
 
       // 1. Eksekusi Perubahan Bisnis
       if (paymentType === "FEATURED_JOB" && jobId) {
-        updatedJob = Database.upgradeJobToFeatured(jobId, 14);
+        updatedJob = await Database.upgradeJobToFeatured(jobId, 14);
       } else if (paymentType === "SUBSCRIPTION_PRO") {
-        updatedUser = Database.updateUserSubscription(userId, "PRO");
+        updatedUser = await Database.updateUserSubscription(userId, "PRO");
       } else if (paymentType === "SUBSCRIPTION_ENTERPRISE") {
-        updatedUser = Database.updateUserSubscription(userId, "ENTERPRISE");
+        updatedUser = await Database.updateUserSubscription(userId, "ENTERPRISE");
       }
 
       // 2. Catat Data Transaksi
-      const transaction = Database.createTransaction({
+      const transaction = await Database.createTransaction({
         userId,
         jobId,
         amount,
@@ -71,7 +71,7 @@ export class PaymentService {
       };
     } else {
       // MODE MIDTRANS / XENDIT PRODUCTION READY BOILERPLATE
-      const transaction = Database.createTransaction({
+      const transaction = await Database.createTransaction({
         userId,
         jobId,
         amount,

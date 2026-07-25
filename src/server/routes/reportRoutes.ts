@@ -15,7 +15,7 @@ const router = express.Router();
 // ==========================================
 
 // POST /api/reports/jobs/:jobId — Pelamar mengirim laporan lowongan
-router.post("/reports/jobs/:jobId", requireAuth, (req: AuthenticatedRequest, res: Response) => {
+router.post("/reports/jobs/:jobId", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: "Anda harus login untuk melaporkan lowongan." });
@@ -40,7 +40,7 @@ router.post("/reports/jobs/:jobId", requireAuth, (req: AuthenticatedRequest, res
       return res.status(400).json({ error: "Kategori alasan laporan tidak valid." });
     }
 
-    const report = Database.createJobReport({
+    const report = await Database.createJobReport({
       jobId,
       reporterId: req.user.id,
       reasonCategory,
@@ -62,9 +62,9 @@ router.post("/reports/jobs/:jobId", requireAuth, (req: AuthenticatedRequest, res
 // ==========================================
 
 // GET /api/admin/reports — Admin mengambil seluruh daftar laporan lowongan
-router.get("/admin/reports", requireAuth, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+router.get("/admin/reports", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const reports = Database.getAllJobReports();
+    const reports = await Database.getAllJobReports();
     return res.json({
       reports,
       total: reports.length
@@ -75,7 +75,7 @@ router.get("/admin/reports", requireAuth, requireAdmin, (req: AuthenticatedReque
 });
 
 // PATCH /api/admin/reports/:reportId/status — Admin memperbarui status laporan (misal: 'RESOLVED_ACTIONED', 'RESOLVED_REJECTED')
-router.patch("/admin/reports/:reportId/status", requireAuth, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+router.patch("/admin/reports/:reportId/status", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { reportId } = req.params;
     const { status } = req.body;
@@ -91,7 +91,7 @@ router.patch("/admin/reports/:reportId/status", requireAuth, requireAdmin, (req:
       return res.status(400).json({ error: "Status laporan tidak valid." });
     }
 
-    const report = Database.updateJobReportStatus(reportId, status);
+    const report = await Database.updateJobReportStatus(reportId, status);
     return res.json({
       message: `Status laporan berhasil diperbarui menjadi "${status}".`,
       report
@@ -102,10 +102,10 @@ router.patch("/admin/reports/:reportId/status", requireAuth, requireAdmin, (req:
 });
 
 // POST /api/admin/jobs/:jobId/take-down — Admin menonaktifkan / take down lowongan yang dilaporkan
-router.post("/admin/jobs/:jobId/take-down", requireAuth, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+router.post("/admin/jobs/:jobId/take-down", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { jobId } = req.params;
-    const job = Database.takeDownJob(jobId);
+    const job = await Database.takeDownJob(jobId);
 
     return res.json({
       message: `Lowongan "${job.title}" (${job.company}) berhasil ditindaklanjuti dan di-take down!`,
@@ -117,10 +117,10 @@ router.post("/admin/jobs/:jobId/take-down", requireAuth, requireAdmin, (req: Aut
 });
 
 // POST /api/admin/users/:userId/ban — Admin memblokir akun HRD bodong (isBanned = true) & menonaktifkan seluruh lokernya
-router.post("/admin/users/:userId/ban", requireAuth, requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+router.post("/admin/users/:userId/ban", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
-    const { user, takenDownJobsCount } = Database.banUserAndTakeDownJobs(userId);
+    const { user, takenDownJobsCount } = await Database.banUserAndTakeDownJobs(userId);
 
     return res.json({
       message: `Akun HRD "${user.name}" (${user.email}) telah berhasil diblokir (BANNED) secara permanen. Sebanyak ${takenDownJobsCount} lowongan miliknya telah ditutup secara otomatis.`,

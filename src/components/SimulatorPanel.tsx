@@ -465,7 +465,7 @@ export default function SimulatorPanel({
                     className="p-2.5 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 rounded-lg text-xs space-y-1 text-left"
                   >
                     <div className="flex items-center justify-between gap-1 text-[11px]">
-                      <span className="font-bold text-sky-300 truncate max-w-[180px]">{log.recipient}</span>
+                      <span className="font-bold text-sky-300 truncate max-w-[180px]">{log.recipient ?? log.recipientName ?? log.recipientEmail ?? "Unknown"}</span>
                       <span className="text-[10px] text-slate-400 font-mono">
                         {new Date(log.sentAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
                       </span>
@@ -474,10 +474,10 @@ export default function SimulatorPanel({
                     <div className="font-semibold text-slate-200 text-[11px] line-clamp-1">{log.subject}</div>
 
                     {/* Jika email berisi link verifikasi */}
-                    {log.htmlBody && log.htmlBody.includes("/verify-email?token=") && (
+                    {(log.htmlBody ?? log.html ?? "").includes("/verify-email?token=") && (
                       <div className="pt-1">
                         {(() => {
-                          const match = log.htmlBody.match(/href=["']([^"']*\/verify-email\?token=[^"']*)["']/);
+                          const match = (log.htmlBody ?? log.html ?? "").match(/href=["']([^"']*\/verify-email\?token=[^"']*)["']/);
                           if (match && match[1]) {
                             return (
                               <a

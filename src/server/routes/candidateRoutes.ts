@@ -10,10 +10,10 @@ import { requireAuth, AuthenticatedRequest } from "../middleware/authMiddleware"
 const router = express.Router();
 
 // 1. GET /api/candidate/profile — Ambil profil kandidat yang sedang login
-router.get("/candidate/profile", requireAuth, (req: AuthenticatedRequest, res: Response) => {
+router.get("/candidate/profile", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const profile = Database.getCandidateProfile(userId) || {
+    const profile = await Database.getCandidateProfile(userId) || {
       id: "",
       userId,
       phone: "",
@@ -36,7 +36,7 @@ router.get("/candidate/profile", requireAuth, (req: AuthenticatedRequest, res: R
 });
 
 // 2. POST /api/candidate/profile — Upsert (buat/edit) profil kandidat
-router.post("/candidate/profile", requireAuth, (req: AuthenticatedRequest, res: Response) => {
+router.post("/candidate/profile", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
     const {
@@ -53,7 +53,7 @@ router.post("/candidate/profile", requireAuth, (req: AuthenticatedRequest, res: 
       alertKeywords
     } = req.body;
 
-    const updatedProfile = Database.upsertCandidateProfile(userId, {
+    const updatedProfile = await Database.upsertCandidateProfile(userId, {
       avatarUrl,
       phone,
       bio,
@@ -67,7 +67,7 @@ router.post("/candidate/profile", requireAuth, (req: AuthenticatedRequest, res: 
       alertKeywords: alertKeywords || ""
     });
 
-    const refreshedUser = Database.findUserById(userId);
+    const refreshedUser = await Database.findUserById(userId);
 
     return res.json({
       message: "Profil & foto avatar kandidat berhasil diperbarui!",
@@ -80,10 +80,10 @@ router.post("/candidate/profile", requireAuth, (req: AuthenticatedRequest, res: 
 });
 
 // 2b. POST /api/candidate/test-job-alert — Kirimkan simulasi/test email notifikasi loker harian
-router.post("/candidate/test-job-alert", requireAuth, (req: AuthenticatedRequest, res: Response) => {
+router.post("/candidate/test-job-alert", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const profile = Database.getCandidateProfile(userId);
+    const profile = await Database.getCandidateProfile(userId);
     const user = req.user!;
 
     if (!profile || !profile.dailyEmailAlerts) {
@@ -92,7 +92,7 @@ router.post("/candidate/test-job-alert", requireAuth, (req: AuthenticatedRequest
       });
     }
 
-    const allJobs = Database.getActiveJobs();
+    const allJobs = await Database.getActiveJobs();
     const categoryFilter = (profile.alertCategory || "").trim().toLowerCase();
     const locationFilter = (profile.alertLocation || "").trim().toLowerCase();
     const keywordFilter = (profile.alertKeywords || "").trim().toLowerCase();
@@ -153,7 +153,7 @@ router.post("/candidate/test-job-alert", requireAuth, (req: AuthenticatedRequest
     `;
 
     // Log email ke database sistem
-    Database.logEmail({
+    await Database.logEmail({
       jobId: sampleJobs[0]?.id || "alert-digest",
       jobTitle: sampleJobs[0]?.title || "Ringkasan Loker Harian",
       company: sampleJobs[0]?.company || "Kerjasana Alerts",
@@ -177,14 +177,14 @@ router.post("/candidate/test-job-alert", requireAuth, (req: AuthenticatedRequest
 });
 
 // 3. POST /api/jobs/:id/apply — Endpoint untuk melamar pekerjaan
-router.post("/jobs/:id/apply", requireAuth, (req: AuthenticatedRequest, res: Response) => {
+router.post("/jobs/:id/apply", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const candidateId = req.user!.id;
     const rawId = req.params.id;
     const { coverLetter } = req.body;
 
     // Pastikan pekerjaan ada dan statusnya ACTIVE
-    const job = Database.findJobById(rawId);
+    const job = await Database.findJobById(rawId);
     if (!job) {
       return res.status(404).json({ error: "Lowongan pekerjaan tidak ditemukan." });
     }
@@ -194,7 +194,7 @@ router.post("/jobs/:id/apply", requireAuth, (req: AuthenticatedRequest, res: Res
     }
 
     // Buat lamaran kerja baru menggunakan job.id resmi
-    const application = Database.createApplication({
+    const application = await Database.createApplication({
       jobId: job.id,
       candidateId,
       coverLetter
@@ -222,10 +222,10 @@ router.post("/jobs/:id/apply", requireAuth, (req: AuthenticatedRequest, res: Res
 });
 
 // 4. GET /api/candidate/applications — Ambil daftar pekerjaan yang pernah dilamar kandidat
-router.get("/candidate/applications", requireAuth, (req: AuthenticatedRequest, res: Response) => {
+router.get("/candidate/applications", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const candidateId = req.user!.id;
-    const applications = Database.getCandidateApplications(candidateId);
+    const applications = await Database.getCandidateApplications(candidateId);
 
     return res.json({
       applications,
@@ -237,15 +237,15 @@ router.get("/candidate/applications", requireAuth, (req: AuthenticatedRequest, r
 });
 
 // 5. GET /api/candidate/check-applied/:jobId — Cek apakah kandidat sudah melamar job ini
-router.get("/candidate/check-applied/:jobId", requireAuth, (req: AuthenticatedRequest, res: Response) => {
+router.get("/candidate/check-applied/:jobId", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const candidateId = req.user!.id;
     const rawJobId = req.params.jobId;
 
-    const job = Database.findJobById(rawJobId);
+    const job = await Database.findJobById(rawJobId);
     const targetJobId = job ? job.id : rawJobId;
 
-    const application = Database.findApplication(targetJobId, candidateId);
+    const application = await Database.findApplication(targetJobId, candidateId);
     return res.json({
       hasApplied: !!application,
       application: application || null

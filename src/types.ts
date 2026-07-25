@@ -67,6 +67,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  passwordHash?: string;
   role: UserRole;
   avatarUrl?: string;
   subscriptionPlan?: string; // "FREE" | "PRO" | "ENTERPRISE"
@@ -138,16 +139,21 @@ export interface Stats {
 
 export interface EmailNotification {
   id: string;
-  jobId: string;
-  jobTitle: string;
-  company: string;
-  recipientEmail: string;
-  recipientName: string;
-  subject: string;
-  html: string;
+  jobId?: string;
+  jobTitle?: string;
+  company?: string;
+  recipient?: string;
+  recipientEmail?: string;
+  recipientName?: string;
+  subject?: string;
+  html?: string;
+  htmlBody?: string;
+  body?: string;
+  to?: string;
+  template?: string;
   sentAt: string;
   etherealUrl?: string; // Tautan preview Ethereal nyata jika ada
-  status: "SENT" | "FAILED";
+  status?: "SENT" | "FAILED";
   error?: string;
 }
 
