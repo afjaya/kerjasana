@@ -47,28 +47,7 @@ app.get('/api/verify-email', async (req, res) => {
   }
 });
 
-// Endpoint Resend Link Verifikasi
-app.post('/api/resend-verification', async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: "Email wajib diisi." });
-    }
-
-    await Database.resendVerificationEmail(email);
-
-    return res.status(200).json({
-      message: "Link verifikasi baru telah dikirimkan ke email Anda.",
-    });
-  } catch (error) {
-    return res.status(400).json({ 
-      error: error.message || "Gagal mengirimkan ulang link verifikasi." 
-    });
-  }
-});
-
-// Endpoint Resend Link Verifikasi (Mendukung /api/resend-verification DAN /api/auth/resend-verification)
+// Handler Logika Kirim Ulang Email Verifikasi
 const handleResendVerification = async (req, res) => {
   try {
     const { email } = req.body;
@@ -83,15 +62,17 @@ const handleResendVerification = async (req, res) => {
       message: "Link verifikasi baru telah dikirimkan ke email Anda.",
     });
   } catch (error) {
-    console.error("[RESEND ERROR]:", error);
+    console.error("[RESEND VERIFICATION ERROR]:", error.message);
     return res.status(400).json({ 
       error: error.message || "Gagal mengirimkan ulang link verifikasi." 
     });
   }
 };
 
+// Pasang ke dua rute sekaligus agar tidak miskomunikasi dengan frontend
 app.post('/api/resend-verification', handleResendVerification);
-app.post('/api/auth/resend-verification', handleResendVerification); // 👈 Alias untuk permintaan dari frontend
+app.post('/api/auth/resend-verification', handleResendVerification);
+
 // Rute API Utama (termasuk Auth & Jobs)
 app.use('/api', jobRoutes);
 

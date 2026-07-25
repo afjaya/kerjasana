@@ -5,12 +5,15 @@ const port = parseInt(process.env.SMTP_PORT || '587');
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: port,
-  // 🔴 PENTING: secure harus false untuk port 587, true hanya untuk port 465
-  secure: port === 465, 
+  secure: port === 465, // false untuk 587
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  // 🔴 PENTING: Atur timeout agar server tidak hang & 502 Bad Gateway
+  connectionTimeout: 10000, // 10 detik
+  greetingTimeout: 5000,
+  socketTimeout: 10000,
 });
 
 async function sendVerificationEmail(targetEmail, userName, token) {
@@ -27,7 +30,7 @@ async function sendVerificationEmail(targetEmail, userName, token) {
         </div>
         <h2 style="color: #0f172a;">Halo, ${userName}! 👋</h2>
         <p style="color: #475569; line-height: 1.6;">
-          Terima kasih telah mendaftar di <strong>Kerjasana.com</strong>. Tinggal satu langkah lagi untuk mengaktifkan akun Anda! Silakan klik tombol di bawah ini untuk memverifikasi alamat email Anda:
+          Terima kasih telah mendaftar di <strong>Kerjasana.com</strong>. Silakan klik tombol di bawah ini untuk memverifikasi alamat email Anda:
         </p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="${verifyLink}" style="background-color: #059669; color: #ffffff; text-decoration: none; padding: 12px 28px; font-weight: bold; border-radius: 8px; display: inline-block;">
@@ -37,10 +40,6 @@ async function sendVerificationEmail(targetEmail, userName, token) {
         <p style="color: #64748b; font-size: 13px;">
           Atau salin tautan berikut di browser Anda:<br>
           <a href="${verifyLink}" style="color: #059669;">${verifyLink}</a>
-        </p>
-        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
-        <p style="color: #94a3b8; font-size: 12px; text-align: center;">
-          Jika Anda tidak merasa mendaftar di Kerjasana.com, abaikan email ini.
         </p>
       </div>
     `,
