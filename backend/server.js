@@ -56,11 +56,25 @@ const handleResendVerification = async (req, res) => {
       return res.status(400).json({ error: "Email wajib diisi." });
     }
 
-    await Database.resendVerificationEmail(email);
+    console.log(`[RESEND] Menerima request kirim ulang untuk: ${email}`);
+
+    // Set timeout 10 detik agar tidak muter-muter tanpa kepastian
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Pengiriman email timeout/terlalu lama. Periksa koneksi SMTP.")), 10000)
+    );
+
+    // Jalankan pengiriman email dengan batas waktu
+    await Promise.race([
+      Database.resendVerificationEmail(email),
+      timeoutPromise
+    ]);
+
+    console.log(`[RESEND SUCCESS] Email verifikasi berhasil dikirim ke: ${email}`);
 
     return res.status(200).json({
       message: "Link verifikasi baru telah dikirimkan ke email Anda.",
     });
+
   } catch (error) {
     console.error("[RESEND VERIFICATION ERROR]:", error.message);
     return res.status(400).json({ 
@@ -69,7 +83,6 @@ const handleResendVerification = async (req, res) => {
   }
 };
 
-// Pasang ke dua rute sekaligus agar tidak miskomunikasi dengan frontend
 app.post('/api/resend-verification', handleResendVerification);
 app.post('/api/auth/resend-verification', handleResendVerification);
 
