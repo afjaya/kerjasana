@@ -9,6 +9,7 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 enum Role {
   ADMIN
   USER
@@ -60,25 +61,26 @@ enum JobReportStatus {
 }
 
 model User {
-  id               String        @id @default(uuid())
-  name             String
-  email            String        @unique
-  passwordHash     String
-  role             Role          @default(APPLICANT)
-  isBanned         Boolean       @default(false)
-  subscriptionPlan String        @default("FREE")
-  jobPostingQuota  Int           @default(2)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  jobs             Job[]         @relation("UserJobs")
-  profile          Profile?
-  applications     Application[] @relation("CandidateApplications")
-  transactions     Transaction[]
-  jobReports       JobReport[]   @relation("ReporterJobReports")
+  id                     String        @id @default(uuid())
+  name                   String
+  email                  String        @unique
+  passwordHash           String
+  role                   Role          @default(APPLICANT)
+  isBanned               Boolean       @default(false)
+  isEmailVerified        Boolean       @default(false) // 🟢 TAMBAHAN BARU: Default false sebelum verifikasi
+  emailVerificationToken String?       @unique         // 🟢 TAMBAHAN BARU: Token unik verifikasi
+  subscriptionPlan       String        @default("FREE")
+  jobPostingQuota        Int           @default(2)
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  jobs                   Job[]         @relation("UserJobs")
+  profile                Profile?
+  applications           Application[] @relation("CandidateApplications")
+  transactions           Transaction[]
+  jobReports             JobReport[]   @relation("ReporterJobReports")
 
   @@map("users")
 }
-
 model Profile {
   id              String   @id @default(uuid())
   userId          String   @unique

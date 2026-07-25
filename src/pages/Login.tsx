@@ -1,8 +1,10 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/// <reference types="react" />
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { UserCheck, Building2, User, Lock, Mail, ArrowRight, ShieldCheck, Sparkles, MailCheck, RefreshCw, AlertCircle } from "lucide-react";
